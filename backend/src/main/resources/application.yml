@@ -1,0 +1,80 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: admin-backend
+  profiles:
+    active: dev
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/admin_system?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: root
+    password: ${DB_PASSWORD:root}
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      password: ${REDIS_PASSWORD:}
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: 1
+      retries: 3
+    consumer:
+      group-id: admin-log-group-v2
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: "*"
+        spring.json.value.default.type: com.trae.admin.modules.log.entity.SysLogDocument
+        spring.json.use.type.headers: false
+      max-poll-records: 10
+    listener:
+      type: batch
+      missing-topics-fatal: false
+      concurrency: 1
+  elasticsearch:
+    uris: http://localhost:9200
+    socket-timeout: 30s
+    connection-timeout: 5s
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.trae.admin.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+      id-type: auto
+
+logging:
+  level:
+    com.trae.admin: debug
+    org.springframework: info
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+  health:
+    kafka:
+      enabled: true
+
+jwt:
+  secret: trae-admin-system-secret-key-must-be-very-long-and-secure-and-safe
+  expiration: 7200000 # 2 hours
+  refresh-expiration: 604800000 # 7 days
