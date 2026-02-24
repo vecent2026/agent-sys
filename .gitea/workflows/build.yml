@@ -29,9 +29,6 @@ jobs:
         run: |
           curl -fsSL https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz | tar xzf - -C /opt
           echo "/opt/apache-maven-3.9.6/bin" >> $GITHUB_PATH
-        env:
-          HTTP_PROXY: http://host.docker.internal:7897
-          HTTPS_PROXY: http://host.docker.internal:7897
 
       - name: Build Admin Service
         run: |
@@ -46,11 +43,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: https://gitea.com/docker/setup-buildx-action@v2
 
-      - name: Build and Push Docker Images
+      - name: Install Docker Compose
+        run: |
+          curl -fsSL "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
+
+      - name: Build Docker Images
         run: |
           docker-compose build
-          # 如果有私有仓库，可以在这里添加 push 步骤
-          # docker-compose push
 
       - name: Deploy
         run: |
