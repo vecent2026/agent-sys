@@ -1,0 +1,70 @@
+name: Build and Deploy Admin Service
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/admin-service/**'
+      - '.gitea/workflows/admin-service.yml'
+      - 'docker-compose.yml'
+  workflow_dispatch:
+    inputs:
+      force-rebuild:
+        description: 'Force rebuild without cache'
+        required: false
+        default: 'false'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      HTTP_PROXY: http://host.docker.internal:7897
+      HTTPS_PROXY: http://host.docker.internal:7897
+      NO_PROXY: localhost,127.0.0.1,gitea,172.17.0.1
+    steps:
+      - name: Checkout code
+        uses: https://gitea.com/actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: https://gitea.com/actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Cache Maven Installation
+        id: cache-maven
+        uses: actions/cache@v3
+        with:
+          path: /opt/apache-maven-3.9.6
+          key: maven-3.9.6
+
+      - name: Set up Maven
+        run: |
+          if [ ! -d "/opt/apache-maven-3.9.6" ]; then
+            echo "Downloading Maven..."
+            curl -fsSL https://mirror.bit.edu.cn/apache/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz | tar xzf - -C /opt
+          else
+            echo "Maven already cached"
+          fi
+          echo "/opt/apache-maven-3.9.6/bin" >> $GITHUB_PATH
+
+      - name: Build Admin Service
+        run: |
+          cd services/admin-service
+          mvn clean package -DskipTests
+
+      - name: Build Docker Image
+        run: |
+          if [ "${{ github.event.inputs.force-rebuild }}" = "true" ]; then
+            docker-compose build --no-cache admin-service
+          else
+            docker-compose build admin-service
+          fi
+        env:
+          DOCKER_BUILDKIT: 1
+
+      - name: Deploy Admin Service
+        run: |
+          docker-compose up -d admin-service
