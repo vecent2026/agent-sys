@@ -51,7 +51,7 @@ jobs:
 
       - name: Build Docker Images
         run: |
-          docker-compose build
+          docker-compose build --build-arg HTTP_PROXY=http://host.docker.internal:7897 --build-arg HTTPS_PROXY=http://host.docker.internal:7897 --build-arg NO_PROXY=localhost,127.0.0.1,gitea,172.17.0.1
         env:
           HTTP_PROXY: http://host.docker.internal:7897
           HTTPS_PROXY: http://host.docker.internal:7897
