@@ -9,9 +9,9 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     env:
-      HTTP_PROXY: http://172.17.0.1:7897
-      HTTPS_PROXY: http://172.17.0.1:7897
-      NO_PROXY: localhost,127.0.0.1,gitea
+      HTTP_PROXY: http://host.docker.internal:7897
+      HTTPS_PROXY: http://host.docker.internal:7897
+      NO_PROXY: localhost,127.0.0.1,gitea,172.17.0.1
     steps:
       - name: Checkout code
         uses: https://gitea.com/actions/checkout@v4
