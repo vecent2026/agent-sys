@@ -24,16 +24,19 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: maven
-      - name: Verify Maven
+
+      - name: Set up Maven
         run: |
-          echo "JAVA_HOME: $JAVA_HOME"
-          echo "PATH: $PATH"
-          which mvn || echo "mvn not found in PATH"
-          ls -la $JAVA_HOME/../ 2>/dev/null || true
+          curl -fsSL https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz | tar xzf - -C /opt
+          echo "/opt/apache-maven-3.9.6/bin" >> $GITHUB_PATH
+        env:
+          HTTP_PROXY: http://host.docker.internal:7897
+          HTTPS_PROXY: http://host.docker.internal:7897
+
       - name: Build Admin Service
         run: |
           cd services/admin-service
-          $JAVA_HOME/../apache-maven/bin/mvn clean package -DskipTests || mvn clean package -DskipTests
+          mvn clean package -DskipTests
 
       - name: Build Log Service
         run: |
