@@ -1,0 +1,43 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build Admin Service
+        run: |
+          cd services/admin-service
+          mvn clean package -DskipTests
+
+      - name: Build Log Service
+        run: |
+          cd services/log-service
+          mvn clean package -DskipTests
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and Push Docker Images
+        run: |
+          docker-compose build
+          # 如果有私有仓库，可以在这里添加 push 步骤
+          # docker-compose push
+
+      - name: Deploy
+        run: |
+          docker-compose up -d

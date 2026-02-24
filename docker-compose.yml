@@ -1,0 +1,205 @@
+version: '3.8'
+
+services:
+  # 基础组件
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: admin_system
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./services/admin-service/sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - trae-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.0
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - trae-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: elasticsearch:7.17.10
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - trae-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  zookeeper:
+    image: wurstmeister/zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - trae-net
+
+  kafka:
+    image: wurstmeister/kafka
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CREATE_TOPICS: "sys-log-topic:1:1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - trae-net
+    depends_on:
+      - zookeeper
+
+  # 业务服务
+  admin-service:
+    build: ./services/admin-service
+    container_name: admin-service
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: admin_system
+      MYSQL_USERNAME: root
+      MYSQL_PASSWORD: root
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ES_URIS: http://elasticsearch:9200
+    ports:
+      - "8081:8081"
+    networks:
+      - trae-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+
+  log-service:
+    build: ./services/log-service
+    container_name: log-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ES_URIS: http://elasticsearch:9200
+    ports:
+      - "8082:8082"
+    networks:
+      - trae-net
+    depends_on:
+      kafka:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+
+  agent-service:
+    build: ./services/agent-service
+    container_name: agent-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8090:8090"
+    networks:
+      - trae-net
+    depends_on:
+      kafka:
+        condition: service_started
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "80:80"
+    networks:
+      - trae-net
+    depends_on:
+      - admin-service
+      - log-service
+      - agent-service
+
+  # CI/CD 服务
+  gitea:
+    image: gitea/gitea:latest
+    container_name: gitea
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__server__ROOT_URL=http://localhost:3000/
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__server__SSH_PORT=2222
+      - GITEA__server__SSH_LISTEN_PORT=2222
+      - GITEA__server__START_SSH_SERVER=true
+      - GITEA__actions__ENABLED=true
+    restart: always
+    networks:
+      - trae-net
+    volumes:
+      - gitea_data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "3000:3000"
+      - "2222:2222"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  gitea-runner:
+    image: gitea/act_runner:latest
+    container_name: gitea-runner
+    environment:
+      - GITEA_INSTANCE_URL=http://gitea:3000
+      - GITEA_RUNNER_REGISTRATION_TOKEN=nqBgmjELsuCJJklueLquZgHKmq3V2UrKCDCHtkdf
+      - GITEA_RUNNER_NAME=docker-runner
+    restart: always
+    networks:
+      - trae-net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - runner_data:/data
+    depends_on:
+      gitea:
+        condition: service_healthy
+
+networks:
+  trae-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  es_data:
+  gitea_data:
+  runner_data:

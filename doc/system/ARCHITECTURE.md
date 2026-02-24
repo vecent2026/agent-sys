@@ -2,9 +2,9 @@
 
 | 项目 | 内容 |
 | :--- | :--- |
-| 文档版本 | V1.2 |
+| 文档版本 | V1.3 |
 | 关联 PRD | V1.1 |
-| 最后更新 | 2026-01-05 |
+| 最后更新 | 2026-02-11 |
 | 状态 | 修订版 |
 
 ### 文档修订记录
@@ -12,6 +12,7 @@
 | :--- | :--- | :--- | :--- |
 | V1.1 | 2026-01-02 | System | 初始版本创建 |
 | V1.2 | 2026-01-05 | Architect | 引入 Kafka + Elasticsearch 重构操作日志架构；更新技术选型、数据流向及部署架构。 |
+| V1.3 | 2026-02-11 | Architect | 增加 Python 智能体系统架构扩展方案。 |
 
 ## 第一阶段：需求解构与约束识别
 
@@ -208,3 +209,59 @@
 *   **索引策略**：
     *   唯一索引：`uk_username`, `uk_mobile`, `uk_role_key`。
     *   普通索引：`idx_create_time` (用于排序/归档), `idx_parent_id` (树形结构查询)。
+
+---
+
+## 第四阶段：智能体系统架构扩展 (Agent System Extension)
+
+### 4.1 架构定位
+引入 Python 智能体系统作为独立的 **AI 计算服务**，与现有的 Java 后端形成 **混合语言微服务架构**。
+*   **Java Backend (管理中台)**：负责用户管理、权限控制、任务调度、业务数据持久化。
+*   **Python Agent System (AI 引擎)**：负责 LLM 交互、RAG（检索增强生成）、Agent 编排。
+
+### 4.2 目录结构规划
+在项目根目录下创建 `agent_system` 目录，与 `backend` 和 `frontend` 平级。
+
+```text
+/root/
+├── backend/                # [现有] Java Spring Boot
+├── frontend/               # [现有] React 前端
+├── agent_system/           # [新建] Python 智能体服务
+│   ├── app/
+│   │   ├── api/            # API 路由 (FastAPI)
+│   │   ├── core/           # 核心配置 (Config, Security)
+│   │   ├── agents/         # 智能体核心逻辑 (LangChain/LangGraph)
+│   │   ├── schemas/        # Pydantic 数据模型
+│   │   └── main.py         # 应用入口
+│   ├── tests/              # 测试用例
+│   ├── requirements.txt    # 依赖列表
+│   └── Dockerfile          # 容器化配置
+```
+
+### 4.3 技术栈选型
+*   **Web 框架**: **FastAPI** (高性能异步框架，适合 AI IO 密集型场景)。
+*   **AI 编排**: **LangGraph** (构建有状态、多步骤的复杂 Agent 工作流)。
+*   **数据交互**: **Pydantic** (数据验证与序列化)。
+*   **依赖管理**: **pip** + **venv** (Python 3.14)。
+
+### 4.4 通信架构
+采用 **混合通信模式** 实现 Java 与 Python 服务的高效交互：
+
+1.  **同步调用 (REST API)**：
+    *   **场景**：实时对话、即时反馈。
+    *   **链路**：Frontend -> Java Backend (Gateway/Auth) -> Python Agent Service。
+    *   **协议**：HTTP/JSON。
+
+2.  **异步任务 (Kafka)**：
+    *   **场景**：耗时分析任务（如日志分析、报表生成）。
+    *   **链路**：
+        1.  Java 发送任务消息至 Kafka Topic (`agent.task.submit`)。
+        2.  Python 监听 Topic，触发 LangGraph 工作流。
+        3.  Python 执行完毕，结果写入 Kafka Topic (`agent.task.result`)。
+
+### 4.5 安全与鉴权
+*   **统一认证**：复用 Java 端生成的 **JWT**。
+*   **鉴权流程**：
+    1.  前端请求携带 Token。
+    2.  Java 端透传 Token 至 Python 端（或在网关层校验）。
+    3.  Python 端使用共享的 `JWT_SECRET` 验证 Token 签名，解析用户信息（不负责签发）。
