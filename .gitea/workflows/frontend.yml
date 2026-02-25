@@ -15,22 +15,64 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install Node.js
-        run: |
-          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-          sudo apt-get install -y nodejs
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
 
       - name: Install npm dependencies
         run: |
           cd frontend
           npm install --legacy-peer-deps
+        continue-on-error: false
+
+      - name: Verify dependencies
+        run: |
+          if [ ! -d "frontend/node_modules" ]; then
+            echo "Error: node_modules directory not found"
+            exit 1
+          fi
+          echo "Dependencies installed successfully"
 
       - name: Build frontend
         run: |
           cd frontend
           npm run build
+        continue-on-error: false
+
+      - name: Verify build
+        run: |
+          if [ ! -d "frontend/dist" ]; then
+            echo "Error: dist directory not found"
+            exit 1
+          fi
+          echo "Frontend built successfully"
+
+      - name: Install Docker Compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose-plugin
+          docker compose version
 
       - name: Build and Deploy
         run: |
-          docker-compose build frontend
-          docker-compose up -d frontend
+          docker compose build frontend
+          docker compose up -d frontend
+        continue-on-error: false
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          if [ -z "$(docker ps -q -f name=frontend)" ]; then
+            echo "Error: Frontend container not running"
+            docker logs frontend || true
+            exit 1
+          fi
+          echo "Frontend deployed successfully"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Frontend CI/CD workflow failed"
+          # 可扩展为 Slack 通知、邮件通知等
