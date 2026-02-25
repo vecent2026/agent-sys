@@ -147,51 +147,7 @@ services:
       - log-service
       - agent-service
 
-  # CI/CD 服务
-  gitea:
-    image: gitea/gitea:latest
-    container_name: gitea
-    environment:
-      - USER_UID=1000
-      - USER_GID=1000
-      - GITEA__server__ROOT_URL=http://localhost:3000/
-      - GITEA__server__HTTP_PORT=3000
-      - GITEA__server__SSH_PORT=2222
-      - GITEA__server__SSH_LISTEN_PORT=2222
-      - GITEA__server__START_SSH_SERVER=true
-      - GITEA__actions__ENABLED=true
-    restart: always
-    networks:
-      - trae-net
-    volumes:
-      - gitea_data:/data
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
-    ports:
-      - "3000:3000"
-      - "2222:2222"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  gitea-runner:
-    image: gitea/act_runner:latest
-    container_name: gitea-runner
-    environment:
-      - GITEA_INSTANCE_URL=http://gitea:3000
-      - GITEA_RUNNER_REGISTRATION_TOKEN=nqBgmjELsuCJJklueLquZgHKmq3V2UrKCDCHtkdf
-      - GITEA_RUNNER_NAME=docker-runner
-    restart: always
-    networks:
-      - trae-net
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - runner_data:/data
-    depends_on:
-      gitea:
-        condition: service_healthy
 
 networks:
   trae-net:
@@ -201,5 +157,3 @@ volumes:
   mysql_data:
   redis_data:
   es_data:
-  gitea_data:
-  runner_data:
