@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-// Test setup for frontend - updated to trigger workflow
+// Test setup for frontend - testing optimized workflow
 import { vi } from 'vitest';
 
 // Mock window.matchMedia
