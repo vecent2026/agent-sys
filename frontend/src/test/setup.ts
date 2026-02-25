@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+// Test setup for frontend
 import { vi } from 'vitest';
 
 // Mock window.matchMedia
