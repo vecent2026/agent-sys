@@ -1,11 +1,9 @@
-FROM nginx:alpine
+FROM node:alpine
 
-COPY dist /usr/share/nginx/html
+RUN npm install -g serve
 
-# 使用默认的 nginx 配置，仅提供静态文件服务
-RUN rm /etc/nginx/conf.d/default.conf
-RUN echo 'server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files $uri $uri/ /index.html; } }' > /etc/nginx/conf.d/default.conf
+COPY dist /app
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["serve", "-s", "/app", "-l", "80"]
