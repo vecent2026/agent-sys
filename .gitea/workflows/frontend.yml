@@ -14,12 +14,18 @@ jobs:
     container:
       image: ubuntu:latest
     steps:
-      - name: Install Git and Node.js
+      - name: Install Git, Node.js and Docker
         run: |
           apt-get update -y
-          apt-get install -y git nodejs npm
+          apt-get install -y git nodejs npm curl
           node -v
           npm -v
+          
+          # Install Docker CLI and Compose plugin
+          curl -fsSL https://get.docker.com -o get-docker.sh
+          sh get-docker.sh
+          docker --version
+          docker compose version
 
       - name: Checkout code
         run: |
@@ -53,11 +59,6 @@ jobs:
             exit 1
           fi
           echo "Frontend built successfully"
-
-      - name: Check Docker Compose availability
-        run: |
-          echo "Using docker compose"
-          docker compose version
 
       - name: Build and Deploy
         run: |
