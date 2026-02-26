@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-// Test setup for frontend - testing reordered steps workflow
+// Test setup for frontend - testing host.docker.internal workflow
 import { vi } from 'vitest';
 
 // Mock window.matchMedia
