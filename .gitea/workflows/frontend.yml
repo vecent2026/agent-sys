@@ -23,7 +23,7 @@ jobs:
 
       - name: Checkout code
         run: |
-          git clone --depth 1 http://localhost:18080/gitea/management.git .
+          git clone --depth 1 http://host.docker.internal:18080/gitea/management.git .
           git checkout main
 
       - name: Install npm dependencies
