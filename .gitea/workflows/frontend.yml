@@ -54,18 +54,20 @@ jobs:
           fi
           echo "Frontend built successfully"
 
-      - name: Install Docker Compose
+      - name: Check Docker Compose availability
         run: |
-          apt-get update
-          apt-get install -y curl
-          curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          chmod +x /usr/local/bin/docker-compose
-          docker-compose --version
+          if command -v docker-compose &> /dev/null; then
+            echo "Docker Compose is available"
+            docker-compose --version
+          else
+            echo "Docker Compose is not available, using docker compose"
+            docker compose --version
+          fi
 
       - name: Build and Deploy
         run: |
-          docker-compose build frontend
-          docker-compose up -d frontend
+          docker compose build frontend
+          docker compose up -d frontend
         continue-on-error: false
 
       - name: Verify deployment
