@@ -1,12 +1,12 @@
 import React from 'react';
-import ReactJson from 'react-json-view';
+import JsonView from '@uiw/react-json-view';
 
 interface JsonViewerProps {
   data: string | object | null | undefined;
   name?: string | false;
 }
 
-const JsonViewer: React.FC<JsonViewerProps> = ({ data, name = false }) => {
+const JsonViewer: React.FC<JsonViewerProps> = ({ data }) => {
   if (!data) {
     return <span style={{ color: '#999' }}>无数据</span>;
   }
@@ -26,13 +26,8 @@ const JsonViewer: React.FC<JsonViewerProps> = ({ data, name = false }) => {
 
   return (
     <div style={{ maxHeight: '400px', overflow: 'auto', border: '1px solid #f0f0f0', borderRadius: '4px', padding: '8px' }}>
-      <ReactJson 
-        src={jsonData} 
-        name={name}
-        theme="rjv-default"
-        displayDataTypes={false}
-        displayObjectSize={false}
-        enableClipboard={true}
+      <JsonView 
+        value={jsonData} 
         collapsed={2}
         style={{ fontSize: '12px' }}
       />
