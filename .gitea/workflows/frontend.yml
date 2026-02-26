@@ -72,7 +72,8 @@ jobs:
 
       - name: Build and Deploy
         run: |
-          docker compose build --no-deps frontend
+          cd frontend
+          docker build -t management-frontend:latest .
           docker compose up -d --no-deps frontend
         continue-on-error: false
 
