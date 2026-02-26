@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-// Test setup for frontend - testing node serve deployment - optimize workflow
+// Test setup for frontend - testing node serve deployment - optimize workflow without cache
 import { vi } from 'vitest';
 
 // Mock window.matchMedia
