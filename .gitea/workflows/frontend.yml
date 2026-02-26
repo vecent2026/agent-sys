@@ -56,13 +56,8 @@ jobs:
 
       - name: Check Docker Compose availability
         run: |
-          if command -v docker-compose &> /dev/null; then
-            echo "Docker Compose is available"
-            docker-compose --version
-          else
-            echo "Docker Compose is not available, using docker compose"
-            docker compose --version
-          fi
+          echo "Using docker compose"
+          docker compose version
 
       - name: Build and Deploy
         run: |
