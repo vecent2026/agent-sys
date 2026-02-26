@@ -74,7 +74,9 @@ jobs:
         run: |
           cd frontend
           docker build -t frontend:latest .
-          docker compose up -d --no-deps frontend
+          docker stop frontend || true
+          docker rm frontend || true
+          docker run -d --name frontend --network trae-net -p 8080:80 frontend:latest
         continue-on-error: false
 
       - name: Verify deployment

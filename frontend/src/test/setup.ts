@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-// Test setup for frontend - testing nginx separation workflow
+// Test setup for frontend - testing node serve deployment - trigger workflow
 import { vi } from 'vitest';
 
 // Mock window.matchMedia
