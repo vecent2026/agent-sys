@@ -56,8 +56,8 @@ jobs:
 
       - name: Install Docker Compose
         run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose-plugin
+          apt-get update
+          apt-get install -y docker-compose-plugin
           docker compose version
 
       - name: Build and Deploy
