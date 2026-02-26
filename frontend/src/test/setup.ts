@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-// Test setup for frontend - testing docker-compose workflow
+// Test setup for frontend - testing host docker commands workflow
 import { vi } from 'vitest';
 
 // Mock window.matchMedia
