@@ -16,10 +16,24 @@ jobs:
     steps:
       - name: Install Git, Node.js and Docker
         run: |
+          # 配置国内 apt 镜像源
+          echo "deb http://mirrors.aliyun.com/ubuntu/ noble main restricted universe multiverse" > /etc/apt/sources.list
+          echo "deb http://mirrors.aliyun.com/ubuntu/ noble-security main restricted universe multiverse" >> /etc/apt/sources.list
+          echo "deb http://mirrors.aliyun.com/ubuntu/ noble-updates main restricted universe multiverse" >> /etc/apt/sources.list
+          echo "deb http://mirrors.aliyun.com/ubuntu/ noble-backports main restricted universe multiverse" >> /etc/apt/sources.list
+          
           apt-get update -y
-          apt-get install -y git nodejs npm curl ca-certificates gnupg
+          apt-get install -y --no-install-recommends git curl ca-certificates gnupg
+          
+          # 安装 Node.js 18 LTS 使用 NodeSource 国内镜像
+          curl -fsSL https://mirrors.aliyun.com/nodesource/deb/setup_18.x | bash -
+          apt-get install -y --no-install-recommends nodejs
+          
           node -v
           npm -v
+          
+          # 配置 npm 国内镜像
+          npm config set registry https://registry.npmmirror.com
           
           # Install Docker CLI using Aliyun mirror
           install -m 0755 -d /etc/apt/keyrings
@@ -32,7 +46,7 @@ jobs:
             tee /etc/apt/sources.list.d/docker.list > /dev/null
             
           apt-get update
-          apt-get install -y docker-ce-cli docker-compose-plugin
+          apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin
           
           docker --version
           docker compose version
@@ -41,6 +55,14 @@ jobs:
         run: |
           git clone --depth 1 http://host.docker.internal:18080/gitea/management.git .
           git checkout main
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v3
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
       - name: Install npm dependencies
         run: |
