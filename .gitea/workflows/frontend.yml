@@ -14,17 +14,17 @@ jobs:
     container:
       image: ubuntu:latest
     steps:
-      - name: Checkout code
-        run: |
-          git clone --depth 1 http://localhost:18080/gitea/management.git .
-          git checkout main
-
       - name: Install Git and Node.js
         run: |
           apt-get update -y
           apt-get install -y git nodejs npm
           node -v
           npm -v
+
+      - name: Checkout code
+        run: |
+          git clone --depth 1 http://localhost:18080/gitea/management.git .
+          git checkout main
 
       - name: Install npm dependencies
         run: |
