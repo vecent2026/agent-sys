@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-// Test setup for frontend - testing Aliyun image
+// Test setup for frontend - testing fixed Aliyun image
 import { vi } from 'vitest';
 
 // Mock window.matchMedia
