@@ -72,8 +72,8 @@ jobs:
 
       - name: Build and Deploy
         run: |
-          docker compose build frontend
-          docker compose up -d frontend
+          docker compose build --no-deps frontend
+          docker compose up -d --no-deps frontend
         continue-on-error: false
 
       - name: Verify deployment
