@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-// Test setup for frontend - testing docker installation workflow
+// Test setup for frontend - testing Aliyun Docker installation workflow
 import { vi } from 'vitest';
 
 // Mock window.matchMedia
