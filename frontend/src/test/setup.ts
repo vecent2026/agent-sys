@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-// Test setup for frontend - testing Docker Hub image
+// Test setup for frontend - testing system commands workflow
 import { vi } from 'vitest';
 
 // Mock window.matchMedia
