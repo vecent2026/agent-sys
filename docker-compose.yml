@@ -139,10 +139,19 @@ services:
     build: ./frontend
     container_name: frontend
     ports:
+      - "8080:80"
+    networks:
+      - trae-net
+
+  nginx-gateway:
+    build: ./infrastructure/nginx
+    container_name: nginx-gateway
+    ports:
       - "80:80"
     networks:
       - trae-net
     depends_on:
+      - frontend
       - admin-service
       - log-service
       - agent-service
