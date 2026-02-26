@@ -11,6 +11,8 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    container:
+      image: registry.cn-hangzhou.aliyuncs.com/library/ubuntu:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
