@@ -2,6 +2,21 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useUserStore } from '@/store/userStore';
 import { storage } from '@/utils/storage';
 
+// Mock the storage module
+vi.mock('@/utils/storage', () => {
+  return {
+    storage: {
+      get: vi.fn(),
+      set: vi.fn(),
+      remove: vi.fn(),
+      clear: vi.fn(),
+      getToken: vi.fn(() => ({ access: '', refresh: '' })),
+      setToken: vi.fn(),
+      clearToken: vi.fn(),
+    },
+  };
+});
+
 describe('userStore', () => {
   beforeEach(() => {
     useUserStore.getState().logout();

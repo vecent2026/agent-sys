@@ -27,7 +27,7 @@ const UserList: React.FC = () => {
   });
   const [searchParams, setSearchParams] = useState<{username?: string; mobile?: string; status?: number}>({});
 
-  const { data: userData, isLoading, refetch } = useQuery({
+  const { data: userData, isLoading } = useQuery({
     queryKey: ['users', pagination, searchParams],
     queryFn: () => getUserList({ page: pagination.current, size: pagination.pageSize, ...searchParams }),
     staleTime: 0,
@@ -47,13 +47,12 @@ const UserList: React.FC = () => {
 
   const createMutation = useMutation({
     mutationFn: (data: UserForm) => createUser(data),
-    onSuccess: async () => {
+    onSuccess: () => {
       message.success('创建成功');
       setVisible(false);
       form.resetFields();
       setPagination(prev => ({ ...prev, current: 1 }));
-      await refetch();
-      await refetch();
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error: any) => {
       message.error(error.message || '创建失败');
@@ -320,11 +319,11 @@ const UserList: React.FC = () => {
 
   return (
     <PageContainer
-      title="用户管理"
+      title="管理员"
       extra={
         <AuthButton perm="sys:user:add">
           <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-            新增用户
+            新增管理员
           </Button>
         </AuthButton>
       }
@@ -368,7 +367,7 @@ const UserList: React.FC = () => {
       />
 
       <Drawer
-        title={editingId ? '编辑用户' : '新增用户'}
+        title={editingId ? '编辑管理员' : '新增管理员'}
         open={visible}
         onClose={() => setVisible(false)}
         size="large"

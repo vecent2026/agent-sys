@@ -5,12 +5,16 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtUtil {
@@ -28,9 +32,18 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    public String createAccessToken(String username, Long version) {
-        return createToken(new HashMap<>(), username, expiration, version);
+    public String createAccessToken(String username, Long userId, Long version, Collection<? extends GrantedAuthority> authorities) {
+        Map<String, Object> claims = new HashMap<>();
+        List<String> authList = authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+        claims.put("authorities", authList);
+        if (userId != null) {
+            claims.put("userId", userId);
+        }
+        return createToken(claims, username, expiration, version);
     }
+
 
     public String createRefreshToken(String username, Long version) {
         return createToken(new HashMap<>(), username, refreshExpiration, version);

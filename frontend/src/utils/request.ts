@@ -40,19 +40,47 @@ const processQueue = (error: any, token: string | null = null) => {
 instance.interceptors.response.use(
   (response: AxiosResponse<Result>) => {
     const res = response.data;
-    if (res.code === 200) {
-      return res.data as any;
+    
+    // Handle blob responses (file downloads)
+    if (response.config.responseType === 'blob') {
+      return res as any;
     }
-    // Handle business errors
-    message.error(res.message || 'Error');
-    if (res.traceId) {
-      console.error(`TraceId: ${res.traceId}`);
+    
+    // Log response for debugging
+    console.log(`[Response] ${response.config.url}:`, res);
+
+    // Check if response has code property
+    if (res && typeof res.code !== 'undefined') {
+      if (res.code === 200) {
+        return res.data as any;
+      }
+      
+      // Handle business errors
+      const errorMessage = res.message || `Error code: ${res.code}`;
+      console.error(`[Business Error] ${response.config.url}:`, errorMessage, res);
+      message.error(errorMessage);
+      
+      if (res.traceId) {
+        console.error(`TraceId: ${res.traceId}`);
+      }
+      return Promise.reject(new Error(errorMessage));
     }
-    return Promise.reject(new Error(res.message || 'Error'));
+    
+    // If response doesn't follow standard format, return it directly or handle as error
+    // Depending on your API contract, you might want to treat this as success or error
+    console.warn(`[Non-standard Response] ${response.config.url}:`, res);
+    return res as any;
   },
   async (error) => {
     const originalRequest = error.config;
     
+    console.error(`[Request Error] ${originalRequest?.url}:`, error);
+    
+    if (error.response) {
+      console.error('[Error Response]:', error.response.data);
+      console.error('[Error Status]:', error.response.status);
+    }
+
     // Handle 401 Unauthorized
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
@@ -79,8 +107,7 @@ instance.interceptors.response.use(
 
         // Call refresh API directly using axios to avoid interceptor loop
         const { data } = await axios.post<Result<{ accessToken: string; refreshToken: string }>>(
-          '/api/auth/refresh',
-          { refreshToken }
+          `/api/auth/refresh?refreshToken=${encodeURIComponent(refreshToken)}`
         );
 
         if (data.code === 200) {

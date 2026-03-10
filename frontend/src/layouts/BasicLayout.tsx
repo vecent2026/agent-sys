@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Layout, Menu, theme, Dropdown, Avatar, Breadcrumb } from 'antd';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -31,6 +31,9 @@ const BasicLayout: React.FC = () => {
   const location = useLocation();
   const { userInfo, logout, menus } = useUserStore();
 
+  // 用户管理列表页：内容填满，不留白
+  const isUserListPage = /^\/app-user\/user\/?$/.test(location.pathname);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -48,17 +51,21 @@ const BasicLayout: React.FC = () => {
   // Transform permissions to AntD menu items
   const menuItems = useMemo(() => {
     const transformMenu = (items: Permission[]): MenuProps['items'] => {
+      if (!Array.isArray(items)) return [];
+      
       return items.map((item) => {
+        if (!item) return null;
+        
         // Only show DIR and MENU types in sidebar
         if (item.type === 'BTN') return null;
 
         const menuItem: any = {
-          key: item.path || item.id.toString(), // Use path as key if available, else ID
+          key: item.path || (item.id ? item.id.toString() : Math.random().toString()), // Use path as key if available, else ID
           icon: getIcon(item.icon),
-          label: item.name,
+          label: item.name || 'Unknown',
         };
 
-        if (item.children && item.children.length > 0) {
+        if (item.children && Array.isArray(item.children) && item.children.length > 0) {
           const children = transformMenu(item.children);
           if (children && children.length > 0) {
             menuItem.children = children;
@@ -82,8 +89,47 @@ const BasicLayout: React.FC = () => {
       onClick: () => navigate('/dashboard'),
     };
 
-    return [dashboardItem, ...(transformMenu(menus) || [])];
+    const safeMenus = Array.isArray(menus) ? menus : [];
+    return [dashboardItem, ...(transformMenu(safeMenus) || [])];
   }, [menus, navigate]);
+
+  // 一级（有 children 的）菜单 key，用于手风琴控制
+  const rootSubmenuKeys = useMemo(
+    () =>
+      (menuItems || [])
+        .filter((item) => item && 'children' in item && (item as any).children)
+        .map((item) => String(item!.key)),
+    [menuItems],
+  );
+
+  // 受控 openKeys：仅展开当前页面所属的一级目录
+  const [openKeys, setOpenKeys] = useState<string[]>([]);
+
+  // 根据当前路径，推导所属一级 key（如 /app-user/user -> /app-user）
+  useEffect(() => {
+    const segments = location.pathname.split('/').filter(Boolean);
+    if (segments.length > 0) {
+      const root = '/' + segments[0];
+      setOpenKeys([root]);
+    } else {
+      setOpenKeys([]);
+    }
+  }, [location.pathname]);
+
+  const handleOpenChange: MenuProps['onOpenChange'] = (keys) => {
+    const latestKey = keys.find((key) => !openKeys.includes(key as string));
+    if (!latestKey) {
+      setOpenKeys(keys as string[]);
+      return;
+    }
+
+    // 一级菜单：只保留当前一个，实现手风琴；子级允许多开
+    if (rootSubmenuKeys.includes(latestKey as string)) {
+      setOpenKeys([latestKey as string]);
+    } else {
+      setOpenKeys(keys as string[]);
+    }
+  };
 
   // Generate breadcrumb items from current path
   const generateBreadcrumbItems = () => {
@@ -151,15 +197,16 @@ const BasicLayout: React.FC = () => {
         trigger={null} 
         collapsible 
         collapsed={collapsed} 
+        width={collapsed ? 80 : 200}
         style={{ overflowY: 'auto' }}
       >
         <div className="demo-logo-vertical" style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.2)' }} />
         <Menu
           theme="dark"
           mode="inline"
-          defaultSelectedKeys={[location.pathname]}
-          // Open all submenus by default or manage openKeys state
-          defaultOpenKeys={['/system']} 
+          selectedKeys={[location.pathname]}
+          openKeys={openKeys}
+          onOpenChange={handleOpenChange}
           items={menuItems}
         />
       </Sider>
@@ -217,7 +264,8 @@ const BasicLayout: React.FC = () => {
             alignItems: 'center',
             padding: '0 16px',
           }}>
-            <Dropdown menu={{ items: userMenu }}>
+          {/* 右侧：用户信息 - 点击头像/名称才弹出菜单，非悬停 */}
+            <Dropdown menu={{ items: userMenu }} trigger={['click']}>
               <div style={{ 
                 cursor: 'pointer', 
                 display: 'flex', 
@@ -248,11 +296,15 @@ const BasicLayout: React.FC = () => {
         </Header>
         <Content
           style={{
-            padding: '24px 16px',
-            overflowY: 'auto',
+            padding: isUserListPage ? 0 : '24px 16px',
+            overflowY: isUserListPage ? 'hidden' : 'auto',
             flex: 1,
+            ...(isUserListPage ? { display: 'flex', flexDirection: 'column', minHeight: 0 } : {}),
           }}
         >
+          {isUserListPage ? (
+            <Outlet />
+          ) : (
           <div
             style={{
               padding: 24,
@@ -264,6 +316,7 @@ const BasicLayout: React.FC = () => {
           >
             <Outlet />
           </div>
+          )}
         </Content>
       </Layout>
     </Layout>

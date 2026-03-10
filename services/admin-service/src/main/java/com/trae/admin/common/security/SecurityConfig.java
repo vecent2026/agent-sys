@@ -51,12 +51,13 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        List<String> allowedOrigins = Arrays.asList("http://localhost:3000", "http://localhost:5173");
+        List<String> allowedOrigins = Arrays.asList("http://localhost:3000", "http://localhost:5173", "http://localhost");
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
         configuration.setAllowedOrigins(allowedOrigins);
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
         source.registerCorsConfiguration("/**", configuration);

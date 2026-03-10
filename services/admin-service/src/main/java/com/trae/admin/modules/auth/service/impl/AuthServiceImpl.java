@@ -8,6 +8,8 @@ import com.trae.admin.modules.auth.dto.LoginBody;
 import com.trae.admin.modules.auth.service.AuthService;
 import com.trae.admin.modules.log.entity.SysLogDocument;
 import com.trae.admin.modules.log.repository.SysLogRepository;
+import com.trae.admin.modules.rbac.entity.SysPermission;
+import com.trae.admin.modules.rbac.mapper.SysPermissionMapper;
 import com.trae.admin.modules.user.entity.SysUser;
 import com.trae.admin.modules.user.mapper.SysUserMapper;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,9 +31,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +46,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
     private final RedisUtil redisUtil;
     private final SysUserMapper sysUserMapper;
+    private final SysPermissionMapper sysPermissionMapper;
     private final com.trae.admin.modules.rbac.service.PermissionService permissionService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final SysLogRepository sysLogRepository;
@@ -55,13 +61,17 @@ public class AuthServiceImpl implements AuthService {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             String username = authentication.getName();
+            Long userId = null;
+            if (authentication.getPrincipal() instanceof com.trae.admin.common.security.CustomUserDetails) {
+                userId = ((com.trae.admin.common.security.CustomUserDetails) authentication.getPrincipal()).getUserId();
+            }
 
             // Get or create token version
             String versionKey = "auth:version:" + username;
             String versionStr = redisUtil.get(versionKey);
             Long version = versionStr != null ? Long.valueOf(versionStr) : 0L;
 
-            String accessToken = jwtUtil.createAccessToken(username, version);
+            String accessToken = jwtUtil.createAccessToken(username, userId, version, authentication.getAuthorities());
             String refreshToken = jwtUtil.createRefreshToken(username, version);
 
             // Store refresh token in Redis (TTL: 7 days)
@@ -111,7 +121,19 @@ public class AuthServiceImpl implements AuthService {
         String versionStr = redisUtil.get(versionKey);
         Long version = versionStr != null ? Long.valueOf(versionStr) : 0L;
 
-        String newAccessToken = jwtUtil.createAccessToken(username, version);
+        // Get user permissions
+        SysUser user = sysUserMapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getUsername, username));
+        if (user == null) {
+            throw new BusinessException("User not found");
+        }
+        List<SysPermission> permissions = sysPermissionMapper.selectPermissionsByUserId(user.getId());
+        List<SimpleGrantedAuthority> authorities = permissions.stream()
+                .filter(p -> StringUtils.hasText(p.getPermissionKey()))
+                .map(p -> new SimpleGrantedAuthority(p.getPermissionKey()))
+                .collect(Collectors.toList());
+
+        String newAccessToken = jwtUtil.createAccessToken(username, user.getId(), version, authorities);
 
         Map<String, String> tokens = new HashMap<>();
         tokens.put("accessToken", newAccessToken);

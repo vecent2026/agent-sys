@@ -13,7 +13,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -44,9 +47,10 @@ class AuthServiceImplTest {
         
         Authentication authentication = mock(Authentication.class);
         when(authentication.getName()).thenReturn("admin");
+        when(authentication.getAuthorities()).thenReturn((Collection) List.of(new SimpleGrantedAuthority("admin")));
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(authentication);
         
-        when(jwtUtil.createAccessToken(anyString(), anyLong())).thenReturn("access_token");
+        when(jwtUtil.createAccessToken(anyString(), anyLong(), any(Collection.class))).thenReturn("access_token");
         when(jwtUtil.createRefreshToken(anyString(), anyLong())).thenReturn("refresh_token");
         
         // Act

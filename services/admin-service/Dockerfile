@@ -20,6 +20,9 @@ ENV HTTP_PROXY=${HTTP_PROXY}
 ENV HTTPS_PROXY=${HTTPS_PROXY}
 ENV NO_PROXY=${NO_PROXY}
 
+# 添加国内 Maven 镜像源
+RUN mkdir -p /root/.m2 && echo '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0" \n  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" \n  xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 \n  http://maven.apache.org/xsd/settings-1.0.0.xsd"> \n  <mirrors> \n    <mirror> \n      <id>alimaven</id> \n      <name>Aliyun Maven</name> \n      <url>https://maven.aliyun.com/repository/public</url> \n      <mirrorOf>central</mirrorOf> \n    </mirror> \n  </mirrors> \n</settings>' > /root/.m2/settings.xml
+
 # 设置工作目录为 /app
 WORKDIR /app
 
@@ -33,8 +36,8 @@ COPY src ./src
 # 执行 Maven 打包命令
 # clean: 清理之前的构建产物
 # package: 编译并打包应用
-# -DskipTests: 跳过测试，加快构建速度
-RUN mvn clean package -DskipTests
+# -Dmaven.test.skip=true: 完全跳过测试编译和执行，加快构建速度
+RUN mvn clean package -Dmaven.test.skip=true
 
 # ==============================================================================
 # 运行阶段：使用轻量级的 Java 运行时镜像
@@ -51,6 +54,9 @@ ARG NO_PROXY
 ENV HTTP_PROXY=${HTTP_PROXY}
 ENV HTTPS_PROXY=${HTTPS_PROXY}
 ENV NO_PROXY=${NO_PROXY}
+
+# 安装 curl 命令用于健康检查
+RUN apk add --no-cache curl
 
 # 设置工作目录为 /app
 WORKDIR /app

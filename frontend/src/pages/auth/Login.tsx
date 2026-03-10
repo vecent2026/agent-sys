@@ -20,18 +20,24 @@ const Login: React.FC = () => {
       setUserInfo(userInfo);
 
       const menus = await getMenus();
-      setMenus(menus);
+      // Ensure menus is an array
+      const safeMenus = Array.isArray(menus) ? menus : [];
+      setMenus(safeMenus);
       
       // Extract permissions from menus for permission control
       // This is a temporary solution, in a real app you'd get permissions from a separate API
       const extractPermissions = (menuItems: any[]): string[] => {
+        if (!Array.isArray(menuItems)) return [];
+        
         const perms: string[] = [];
         const traverse = (items: any[]) => {
+          if (!Array.isArray(items)) return;
+          
           items.forEach(item => {
             if (item.permissionKey) {
               perms.push(item.permissionKey);
             }
-            if (item.children) {
+            if (item.children && Array.isArray(item.children)) {
               traverse(item.children);
             }
           });
@@ -40,7 +46,7 @@ const Login: React.FC = () => {
         return perms;
       };
       
-      const permissions = extractPermissions(menus);
+      const permissions = extractPermissions(safeMenus);
       useUserStore.getState().setPermissions(permissions);
       
       message.success('登录成功');

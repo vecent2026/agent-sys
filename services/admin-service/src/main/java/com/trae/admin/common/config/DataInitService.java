@@ -102,11 +102,11 @@ public class DataInitService implements CommandLineRunner {
         Long id = 1L;
 
         // System Management (Directory)
-        SysPermission systemDir = createPermission(id++, 0L, "系统管理", "DIR", null, "/system", null, 1);
+        SysPermission systemDir = createPermission(id++, 0L, "系统管理", "DIR", null, "/system", null, 11);
         permissions.add(systemDir);
 
         // User Management (Menu)
-        SysPermission userMenu = createPermission(id++, systemDir.getId(), "用户管理", "MENU", null, "/system/user", "system/user/index", 1);
+        SysPermission userMenu = createPermission(id++, systemDir.getId(), "管理员", "MENU", null, "/system/user", "system/user/index", 1);
         permissions.add(userMenu);
 
         // User Management Buttons
@@ -145,6 +145,44 @@ public class DataInitService implements CommandLineRunner {
 
         // Log Management Buttons
         permissions.add(createPermission(id++, logMenu.getId(), "日志查询", "BTN", "sys:log:list", null, null, 1));
+
+        // App User Management (Directory)
+        SysPermission appUserDir = createPermission(id++, 0L, "用户中心", "DIR", null, "/app-user", null, 10);
+        permissions.add(appUserDir);
+
+        // App User Management (Menu)
+        SysPermission appUserMenu = createPermission(id++, appUserDir.getId(), "用户管理", "MENU", null, "/app-user/user", "app-user/user/index", 1);
+        permissions.add(appUserMenu);
+
+        // App User Management Buttons
+        permissions.add(createPermission(id++, appUserMenu.getId(), "用户查询", "BTN", "app:user:list", null, null, 1));
+        permissions.add(createPermission(id++, appUserMenu.getId(), "用户详情", "BTN", "app:user:view", null, null, 2));
+        permissions.add(createPermission(id++, appUserMenu.getId(), "用户状态", "BTN", "app:user:status", null, null, 3));
+        permissions.add(createPermission(id++, appUserMenu.getId(), "批量打标签", "BTN", "app:user:tag", null, null, 4));
+        permissions.add(createPermission(id++, appUserMenu.getId(), "导出用户", "BTN", "app:user:export", null, null, 5));
+        permissions.add(createPermission(id++, appUserMenu.getId(), "导入用户", "BTN", "app:user:import", null, null, 6));
+
+        // App Tag Management (Menu)
+        SysPermission appTagMenu = createPermission(id++, appUserDir.getId(), "标签管理", "MENU", null, "/app-user/tag", "app-user/tag/index", 2);
+        permissions.add(appTagMenu);
+
+        // App Tag Management Buttons
+        permissions.add(createPermission(id++, appTagMenu.getId(), "标签查询", "BTN", "app:tag:list", null, null, 1));
+        permissions.add(createPermission(id++, appTagMenu.getId(), "标签新增", "BTN", "app:tag:add", null, null, 2));
+        permissions.add(createPermission(id++, appTagMenu.getId(), "标签编辑", "BTN", "app:tag:edit", null, null, 3));
+        permissions.add(createPermission(id++, appTagMenu.getId(), "标签删除", "BTN", "app:tag:delete", null, null, 4));
+        permissions.add(createPermission(id++, appTagMenu.getId(), "标签状态", "BTN", "app:tag:status", null, null, 5));
+
+        // App Field Management (Menu)
+        SysPermission appFieldMenu = createPermission(id++, appUserDir.getId(), "字段管理", "MENU", null, "/app-user/field", "app-user/field/index", 3);
+        permissions.add(appFieldMenu);
+
+        // App Field Management Buttons
+        permissions.add(createPermission(id++, appFieldMenu.getId(), "字段查询", "BTN", "app:field:list", null, null, 1));
+        permissions.add(createPermission(id++, appFieldMenu.getId(), "字段新增", "BTN", "app:field:add", null, null, 2));
+        permissions.add(createPermission(id++, appFieldMenu.getId(), "字段编辑", "BTN", "app:field:edit", null, null, 3));
+        permissions.add(createPermission(id++, appFieldMenu.getId(), "字段删除", "BTN", "app:field:remove", null, null, 4));
+        permissions.add(createPermission(id++, appFieldMenu.getId(), "字段状态", "BTN", "app:field:status", null, null, 5));
 
         return permissions;
     }

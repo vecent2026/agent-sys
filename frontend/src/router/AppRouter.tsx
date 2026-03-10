@@ -1,24 +1,44 @@
 import React, { useMemo } from 'react';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { BrowserRouter, useRoutes, Navigate } from 'react-router-dom';
 import { useUserStore } from '@/store/userStore';
 import { generateRoutes } from '@/utils/route-utils';
-import { getStaticRoutes } from './index';
+import BasicLayout from '@/layouts/BasicLayout';
+import LoginLayout from '@/layouts/LoginLayout';
+import Login from '@/pages/auth/Login';
+import Dashboard from '@/pages/dashboard';
+import { AuthGuard } from '@/components/AuthGuard';
 
-export const AppRouter: React.FC = () => {
+const Routes: React.FC = () => {
   const menus = useUserStore((state) => state.menus);
+  const dynamicRoutes = useMemo(() => generateRoutes(menus), [menus]);
 
-  const router = useMemo(() => {
-    const routes = getStaticRoutes();
-    
-    // Find the layout route (path: '/')
-    const layoutRoute = routes.find((r) => r.path === '/');
-    if (layoutRoute && layoutRoute.children) {
-      const dynamicRoutes = generateRoutes(menus);
-      layoutRoute.children = [...layoutRoute.children, ...dynamicRoutes];
-    }
+  const routes = useRoutes([
+    {
+      path: '/login',
+      element: <LoginLayout />,
+      children: [{ path: '', element: <Login /> }],
+    },
+    {
+      path: '/',
+      element: (
+        <AuthGuard>
+          <BasicLayout />
+        </AuthGuard>
+      ),
+      children: [
+        { path: '', element: <Navigate to="/dashboard" replace /> },
+        { path: 'dashboard', element: <Dashboard /> },
+        ...dynamicRoutes,
+      ],
+    },
+    { path: '*', element: <div>404 Not Found</div> },
+  ]);
 
-    return createBrowserRouter(routes);
-  }, [menus]);
-
-  return <RouterProvider router={router} />;
+  return routes;
 };
+
+export const AppRouter: React.FC = () => (
+  <BrowserRouter>
+    <Routes />
+  </BrowserRouter>
+);

@@ -3,16 +3,21 @@ version: '3.8'
 services:
   # 基础组件
   mysql:
-    image: mysql:8.0
+    image: mysql:8.4.8
     container_name: mysql
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: admin_system
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./services/admin-service/sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./services/admin-service/sql/schema.sql:/docker-entrypoint-initdb.d/01_admin_schema.sql
+      - ./services/user-service/sql/schema.sql:/docker-entrypoint-initdb.d/02_user_schema.sql
+      - ./services/user-service/sql/user_views.sql:/docker-entrypoint-initdb.d/03_user_views.sql
+      - ./infrastructure/mysql/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
     networks:
       - trae-net
     healthcheck:
@@ -22,7 +27,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7.0
+    image: redis:7.4.8
     container_name: redis
     ports:
       - "6379:6379"
@@ -37,11 +42,12 @@ services:
       retries: 5
 
   elasticsearch:
-    image: elasticsearch:7.17.10
+    image: elasticsearch:8.19.7
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
     ports:
       - "9200:9200"
     volumes:
@@ -96,6 +102,11 @@ services:
       - "8081:8081"
     networks:
       - trae-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
       mysql:
         condition: service_healthy
@@ -106,6 +117,35 @@ services:
       elasticsearch:
         condition: service_healthy
 
+  user-service:
+    build: ./services/user-service
+    container_name: user-service
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: trae_user
+      MYSQL_USERNAME: root
+      MYSQL_PASSWORD: root
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8082:8082"
+    networks:
+      - trae-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+
   log-service:
     build: ./services/log-service
     container_name: log-service
@@ -113,9 +153,14 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       ES_URIS: http://elasticsearch:9200
     ports:
-      - "8082:8082"
+      - "8083:8083"
     networks:
       - trae-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
       kafka:
         condition: service_started
@@ -131,15 +176,18 @@ services:
       - "8090:8090"
     networks:
       - trae-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
       kafka:
         condition: service_started
 
   frontend:
-    build: ./frontend
+    image: frontend:latest
     container_name: frontend
-    ports:
-      - "8080:80"
     networks:
       - trae-net
 
@@ -154,12 +202,16 @@ services:
     networks:
       - trae-net
     depends_on:
-      - frontend
-      - admin-service
-      - log-service
-      - agent-service
-
-
+      frontend:
+        condition: service_started
+      admin-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      log-service:
+        condition: service_started
+      agent-service:
+        condition: service_started
 
 networks:
   trae-net:

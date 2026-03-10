@@ -2,6 +2,7 @@
 FROM node:alpine as builder
 WORKDIR /app
 COPY package*.json ./
+RUN npm config set registry https://registry.npmmirror.com
 RUN npm install
 COPY . .
 RUN npm run build
@@ -10,5 +11,6 @@ RUN npm run build
 FROM node:alpine
 RUN npm install -g serve
 COPY --from=builder /app/dist /app
+COPY serve.json /app/serve.json
 EXPOSE 80
 CMD ["serve", "-s", "/app", "-l", "80"]

@@ -1,0 +1,33 @@
+---
+alwaysApply: false
+description: 技术栈规则
+---
+
+# 技术栈版本
+
+## 后端
+
+| 技术 | 版本 |
+|------|------|
+| Java | 17 |
+| Spring Boot | 3.2.1 |
+| MySQL | 8.4.8 |
+| Redis | 7.4.8 |
+| Elasticsearch | 8.19.7 |
+| Kafka | - |
+| JUnit | 5.x |
+| Mockito | 4.x |
+| Testcontainers | 1.19.3 |
+
+## 前端
+
+| 技术 | 版本 |
+|------|------|
+| Node.js | 18+ |
+| React | 19.2.0 |
+| TypeScript | 5.9.3 |
+| Vite | 7.2.4 |
+| Ant Design | 6.1.3 |
+| Zustand | 5.0.9 |
+| React Router | 7.11.0 |
+| Vitest | 4.0.16 |

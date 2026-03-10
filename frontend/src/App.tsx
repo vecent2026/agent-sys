@@ -5,6 +5,7 @@ import zhCN from 'antd/locale/zh_CN';
 import { AppRouter } from '@/router/AppRouter';
 import { useUserStore } from '@/store/userStore';
 import { getUserInfo, getMenus } from '@/api/auth';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import type { Permission } from '@/types/permission';
 import 'dayjs/locale/zh-cn';
 
@@ -18,25 +19,21 @@ const queryClient = new QueryClient({
 });
 
 const App: React.FC = () => {
-  const { token, userInfo, menus, setUserInfo, setMenus, setPermissions } = useUserStore();
+  const token = useUserStore((state) => state.token);
   const [isRestoring, setIsRestoring] = useState(false);
 
   useEffect(() => {
-    // Restore user data from API if token exists
     const restoreUserState = async () => {
-      // Only attempt to restore if we have a valid access token
-      // and haven't already restored user data
+      const { userInfo, menus, setUserInfo, setMenus, setPermissions } = useUserStore.getState();
       if (token.access && typeof token.access === 'string' && token.access.trim() !== '' && !userInfo && !menus.length) {
         setIsRestoring(true);
         try {
-          // Get user info and menus from API
-          const userInfo = await getUserInfo();
-          setUserInfo(userInfo);
+          const fetchedUserInfo = await getUserInfo();
+          setUserInfo(fetchedUserInfo);
 
-          const menus = await getMenus();
-          setMenus(menus);
+          const fetchedMenus = await getMenus();
+          setMenus(fetchedMenus);
 
-          // Extract permissions from menus for permission control
           const extractPermissions = (menuItems: Permission[]): string[] => {
             const perms: string[] = [];
             const traverse = (items: Permission[]) => {
@@ -53,12 +50,10 @@ const App: React.FC = () => {
             return perms;
           };
           
-          const permissions = extractPermissions(menus);
+          const permissions = extractPermissions(fetchedMenus);
           setPermissions(permissions);
         } catch (error) {
           console.error('Failed to restore user state:', error);
-          // Token might be invalid, clear state
-          // Use a timeout to avoid synchronous state updates causing loops
           setTimeout(() => {
             useUserStore.getState().logout();
           }, 0);
@@ -69,20 +64,24 @@ const App: React.FC = () => {
     };
 
     restoreUserState();
-  }, [token.access, userInfo, menus, setUserInfo, setMenus, setPermissions]);
+    // 只依赖 token.access，避免 setMenus → menus 变化 → effect 重新触发的循环
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token.access]);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ConfigProvider locale={zhCN}>
-        {isRestoring ? (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-            <Spin size="large" />
-          </div>
-        ) : (
-          <AppRouter />
-        )}
-      </ConfigProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider locale={zhCN}>
+          {isRestoring ? (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+              <Spin size="large" />
+            </div>
+          ) : (
+            <AppRouter />
+          )}
+        </ConfigProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

@@ -1,0 +1,151 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #fff;
+  overflow: hidden;
+}
+
+.viewBar {
+  flex: 0 0 auto;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.actionBar {
+  flex: 0 0 auto;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 4px;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.tableWrapper {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 表头/单元格纵向分割线 */
+.tableWrapper :global(.ant-table-thead > tr > th:not(:last-child)),
+.tableWrapper :global(.ant-table-tbody > tr > td:not(:last-child)) {
+  border-right: 1px solid #f0f0f0;
+}
+
+.draggableTh {
+  position: relative;
+}
+
+.headerCell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.headerCellDraggable {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.draggableTh:hover {
+  background: #f2f4f7;
+}
+
+.headerTitle {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.dragHandle {
+  flex: 0 0 auto;
+  cursor: grab;
+  user-select: none;
+  color: #999;
+  opacity: 0;
+  transition: opacity 0.15s;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.draggableTh:hover .dragHandle {
+  opacity: 1;
+}
+
+.dropIndicator {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: #1677ff;
+  border-radius: 2px;
+  z-index: 2;
+}
+
+.dragOverlay {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e6f4ff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: #1677ff;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.draggingColumn {
+  background-color: #e6f4ff !important;
+}
+
+.globalDropLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #1677ff;
+  border-radius: 2px;
+  z-index: 5;
+}
+
+.footerBar {
+  flex: 0 0 auto;
+  padding: 0 16px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  background-color: #fff;
+  z-index: 10;
+  height: 48px;
+}
+
+.batchBar {
+  flex: 0 0 auto;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  flex-shrink: 0;
+  background: #fff;
+  z-index: 20;
+}
+
+.batchBarVisible {
+  display: flex;
+}
+
+.batchBarHidden {
+  display: none;
+}

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import { BrowserRouter } from 'react-router-dom';
 import Login from '@/pages/auth/Login';
 import * as authApi from '@/api/auth';
@@ -12,10 +13,15 @@ vi.mock('@/api/auth', () => ({
   getMenus: vi.fn(),
 }));
 
-// Mock message
+// Mock antd components
 vi.mock('antd', async (importOriginal) => {
-  await importOriginal<typeof import('antd')>();
+  const actual = await importOriginal<typeof import('antd')>();
   return {
+    ...actual,
+    Card: ({ children, style }: any) => <div style={style}>{children}</div>,
+    Form: actual.Form,
+    Input: actual.Input,
+    Button: actual.Button,
     message: {
       success: vi.fn(),
       error: vi.fn(),

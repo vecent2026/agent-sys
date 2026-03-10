@@ -1,6 +1,6 @@
-import '@testing-library/jest-dom';
 // Test setup for frontend - testing node serve deployment - optimize workflow without cache
 import { vi } from 'vitest';
+import '@testing-library/jest-dom';
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {

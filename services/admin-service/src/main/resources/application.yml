@@ -61,5 +61,5 @@ management:
 
 jwt:
   secret: ${JWT_SECRET:trae-admin-system-secret-key-must-be-very-long-and-secure-and-safe}
-  expiration: 7200000 # 2 hours
+  expiration: 28800000 # 8 hours
   refresh-expiration: 604800000 # 7 days
