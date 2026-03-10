@@ -85,7 +85,12 @@ const DraggableHeaderCell: React.FC<any> = (props) => {
       : { left: 0 };
 
   return (
-    <th ref={setNodeRef} {...restProps} style={style} className={styles.draggableTh}>
+    <th
+      ref={setNodeRef}
+      {...restProps}
+      style={style}
+      className={[restProps.className, styles.draggableTh].filter(Boolean).join(' ')}
+    >
       {showIndicator && <div className={styles.dropIndicator} style={indicatorPositionStyle} />}
       <div className={draggable ? styles.headerCellDraggable : styles.headerCell}>
         <div className={styles.headerTitle}>{children}</div>
