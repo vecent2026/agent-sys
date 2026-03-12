@@ -112,6 +112,7 @@ export const mapFiltersToQuery = (filters: FilterCondition[], filterLogic: 'AND'
   // Filter out invalid filters (empty value unless operator is empty/not_empty)
   const validFilters = processedFilters.filter(f => {
     if (f.operator === 'empty' || f.operator === 'not_empty' || f.operator === '为空' || f.operator === '不为空') return true;
+    if (f.field === 'tags' && f.value && typeof f.value === 'object' && Array.isArray(f.value.tagIds)) return f.value.tagIds.length > 0;
     if (Array.isArray(f.value)) return f.value.length > 0;
     return f.value !== '' && f.value !== null && f.value !== undefined;
   });

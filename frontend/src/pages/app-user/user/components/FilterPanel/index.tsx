@@ -121,6 +121,7 @@ const FilterPanel: React.FC = () => {
   // Count valid filters (non-empty value or empty/not_empty operator)
   const validFilterCount = storeFilters.filter(f => {
     if (f.operator === '为空' || f.operator === '不为空') return true;
+    if (f.field === 'tags' && f.value && typeof f.value === 'object' && Array.isArray(f.value.tagIds)) return f.value.tagIds.length > 0;
     if (Array.isArray(f.value)) return f.value.length > 0;
     return f.value !== '' && f.value !== null && f.value !== undefined;
   }).length;

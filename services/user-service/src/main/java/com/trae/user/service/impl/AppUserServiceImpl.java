@@ -122,6 +122,8 @@ public class AppUserServiceImpl extends ServiceImpl<AppUserMapper, AppUser> impl
             applyDateFilter(wrapper, AppUser::getLastLoginTime, op, val, filter.getType());
         } else if ("birthday".equals(field)) {
             applyLocalDateFilter(wrapper, AppUser::getBirthday, op, val);
+        } else if ("tags".equals(field)) {
+            applyTagFilter(wrapper, filter);
         } else {
             applyCustomFieldFilter(wrapper, field, op, val);
         }
@@ -241,6 +243,148 @@ public class AppUserServiceImpl extends ServiceImpl<AppUserMapper, AppUser> impl
             wrapper.gt(column, dateValue);
         } else if ("lt".equals(op) || "早于".equals(op)) {
             wrapper.lt(column, dateValue);
+        }
+    }
+
+    /**
+     * 应用标签筛选条件 - 新的统一筛选系统
+     */
+    private void applyTagFilter(LambdaQueryWrapper<AppUser> wrapper, FilterConditionDTO filter) {
+        String op = filter.getOperator();
+        Object val = filter.getValue();
+
+        log.debug("Applying tag filter - operator: {}, value: {}", op, val);
+
+        try {
+            if ("empty".equals(op) || "为空".equals(op)) {
+                // 用户没有任何标签
+                wrapper.notExists("SELECT 1 FROM user_tag_relation r WHERE r.user_id = app_user.id");
+                log.debug("Applied tag IS_EMPTY filter");
+                return;
+            }
+            
+            if ("not_empty".equals(op) || "不为空".equals(op)) {
+                // 用户有至少一个标签
+                wrapper.exists("SELECT 1 FROM user_tag_relation r WHERE r.user_id = app_user.id");
+                log.debug("Applied tag IS_NOT_EMPTY filter");
+                return;
+            }
+            
+            // 解析标签值
+            List<Long> tagIds = parseTagIds(val);
+            if (tagIds.isEmpty()) {
+                log.warn("Tag filter value is empty, skipping filter");
+                return;
+            }
+
+            String tagIdStr = tagIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+            
+            if ("contains".equals(op) || "包含".equals(op)) {
+                // 用户拥有任一指定标签 - 使用EXISTS子查询避免重复行
+                String existsSql = "SELECT 1 FROM user_tag_relation r " +
+                                  "WHERE r.user_id = app_user.id AND r.tag_id IN (" + tagIdStr + ")";
+                wrapper.exists(existsSql);
+                log.debug("Applied tag CONTAINS filter for {} tags", tagIds.size());
+                
+            } else if ("not_contains".equals(op) || "不包含".equals(op)) {
+                // 用户不拥有任一指定标签
+                String notExistsSql = "SELECT 1 FROM user_tag_relation r " +
+                                     "WHERE r.user_id = app_user.id AND r.tag_id IN (" + tagIdStr + ")";
+                wrapper.notExists(notExistsSql);
+                log.debug("Applied tag NOT_CONTAINS filter for {} tags", tagIds.size());
+                
+            } else {
+                log.warn("Unsupported tag operator: {}", op);
+            }
+            
+        } catch (Exception e) {
+            log.error("Failed to apply tag filter: operator={}, value={}", op, val, e);
+            // 不抛出异常，避免影响其他筛选条件
+        }
+    }
+    
+    /**
+     * 解析标签ID列表
+     * 兼容多种数据格式：Map对象、List数组、逗号分隔字符串等
+     */
+    private List<Long> parseTagIds(Object val) {
+        if (val == null) {
+            return Collections.emptyList();
+        }
+        
+        try {
+            // 格式1: Map对象 {categoryId: 1, tagIds: [1,2,3]}
+            if (val instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> map = (Map<String, Object>) val;
+                Object tagIdsObj = map.get("tagIds");
+                
+                if (tagIdsObj instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Object> tagIdsList = (List<Object>) tagIdsObj;
+                    return tagIdsList.stream()
+                            .filter(Objects::nonNull)
+                            .map(this::parseTagId)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toList());
+                }
+            }
+            
+            // 格式2: List数组 [1,2,3]
+            if (val instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Object> list = (List<Object>) val;
+                return list.stream()
+                        .filter(Objects::nonNull)
+                        .map(this::parseTagId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+            }
+            
+            // 格式3: 逗号分隔字符串 "1,2,3"
+            if (val instanceof String) {
+                String str = (String) val;
+                if (str.trim().isEmpty()) {
+                    return Collections.emptyList();
+                }
+                return Arrays.stream(str.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .map(this::parseTagId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+            }
+            
+            // 格式4: 单个数字
+            Long singleTagId = parseTagId(val);
+            return singleTagId != null ? Collections.singletonList(singleTagId) : Collections.emptyList();
+            
+        } catch (Exception e) {
+            log.error("Failed to parse tag IDs from value: {}", val, e);
+            return Collections.emptyList();
+        }
+    }
+    
+    /**
+     * 解析单个标签ID
+     */
+    private Long parseTagId(Object obj) {
+        if (obj == null) {
+            return null;
+        }
+        
+        try {
+            if (obj instanceof Number) {
+                return ((Number) obj).longValue();
+            }
+            if (obj instanceof String) {
+                String str = ((String) obj).trim();
+                return str.isEmpty() ? null : Long.parseLong(str);
+            }
+            return null;
+        } catch (NumberFormatException e) {
+            log.warn("Invalid tag ID format: {}", obj);
+            return null;
         }
     }
 

@@ -7,7 +7,7 @@ export interface FilterCondition {
   field: string;
   operator: string;
   value: any;
-  type: 'string' | 'enum' | 'date';
+  type: 'string' | 'enum' | 'date' | 'tagCascade';
 }
 
 export interface ViewConfig {

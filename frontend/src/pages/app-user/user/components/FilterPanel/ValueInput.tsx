@@ -1,12 +1,19 @@
 import React from 'react';
-import { Input, Select, DatePicker, InputNumber } from 'antd';
+import { Input, Select, DatePicker, InputNumber, Tag } from 'antd';
 import dayjs from 'dayjs';
+import { useQuery } from '@tanstack/react-query';
 import { DATE_PRESETS } from '../../utils/filter-utils';
+import { getTagCategoryList, getAppTagList } from '@/api/app-user';
+
+export interface TagCascadeValue {
+  categoryId: number | null;
+  tagIds: number[];
+}
 
 interface ValueInputProps {
   value: any;
   onChange: (value: any) => void;
-  type: 'string' | 'enum' | 'date' | 'number';
+  type: 'string' | 'enum' | 'date' | 'number' | 'tagCascade';
   operator: string;
   fieldConfig?: any;
 }
@@ -14,6 +21,54 @@ interface ValueInputProps {
 const ValueInput: React.FC<ValueInputProps> = ({ value, onChange, type, operator, fieldConfig }) => {
   if (['empty', 'not_empty'].includes(operator)) {
     return null;
+  }
+
+  if (type === 'tagCascade') {
+    const tagValue: TagCascadeValue = value && typeof value === 'object' && 'tagIds' in value
+      ? { categoryId: value.categoryId ?? null, tagIds: Array.isArray(value.tagIds) ? value.tagIds : [] }
+      : { categoryId: null, tagIds: [] };
+
+    const { data: categories } = useQuery({
+      queryKey: ['tag-categories'],
+      queryFn: getTagCategoryList,
+    });
+    const { data: tagData } = useQuery({
+      queryKey: ['app-tags-filter', tagValue.categoryId],
+      queryFn: () => getAppTagList({ page: 1, size: 500, categoryId: tagValue.categoryId ?? undefined, status: 1 }),
+      enabled: tagValue.categoryId != null,
+    });
+    const tagOptions = tagData?.records?.map((t) => ({ label: t.name, value: t.id, color: t.color })) ?? [];
+
+    return (
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: 200, flexWrap: 'nowrap' }}>
+        <Select
+          placeholder="分类"
+          value={tagValue.categoryId}
+          onChange={(categoryId) => onChange({ categoryId: categoryId ?? null, tagIds: [] })}
+          options={[
+            ...(categories ?? []).map((c) => ({ label: c.name, value: c.id })),
+          ]}
+          style={{ width: 88, flexShrink: 0 }}
+          allowClear
+        />
+        <Select
+          placeholder="标签"
+          mode="multiple"
+          value={tagValue.tagIds}
+          onChange={(tagIds) => onChange({ ...tagValue, tagIds })}
+          options={tagOptions}
+          style={{ flex: 1, minWidth: 0 }}
+          allowClear
+          disabled={tagValue.categoryId == null}
+          maxTagCount={1}
+          optionRender={(opt) => (
+            <Tag color={opt.data?.color ?? 'default'} style={{ margin: 0 }}>
+              {opt.label}
+            </Tag>
+          )}
+        />
+      </div>
+    );
   }
 
   if (type === 'string') {

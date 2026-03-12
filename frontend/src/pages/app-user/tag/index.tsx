@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Table, Button, Form, Input, Select, Modal, message, Popconfirm, Space, Card, List, Tag, Popover, Tooltip } from 'antd';
+import { Table, Button, Form, Input, Select, Modal, message, Popconfirm, Space, List, Tag, Popover, Tooltip, Pagination } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, MoreOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTagCategoryList, createTagCategory, updateTagCategory, deleteTagCategory, getAppTagList, createAppTag, updateAppTag, deleteAppTag, updateAppTagStatus } from '@/api/app-user';
@@ -372,30 +372,44 @@ const TagManagement: React.FC = () => {
         height: 'calc(100vh - 196px)',
         overflow: 'hidden',
         background: '#fff',
-        padding: 16,
         boxSizing: 'border-box',
       }}
     >
       <div
         style={{
           display: 'flex',
-          gap: 16,
           flex: 1,
           minHeight: 0,
         }}
       >
-        <Card
-          title="标签分类"
-          style={{ width: 300, height: '100%', display: 'flex', flexDirection: 'column' }}
-          bodyStyle={{ padding: 12, display: 'flex', flexDirection: 'column', minHeight: 0 }}
-          extra={
+        {/* 左侧标签分类 */}
+        <div
+          style={{
+            width: 280,
+            borderRight: '1px solid #f0f0f0',
+            padding: '8px 8px 8px 0',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 8,
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ fontWeight: 500, fontSize: 13 }}>标签分类</span>
             <AuthButton perm="app:tag:add">
               <Button type="link" icon={<PlusOutlined />} onClick={handleAddCategory}>
                 新增
               </Button>
             </AuthButton>
-          }
-        >
+          </div>
           <List
             style={{ flex: 1, overflowY: 'auto' }}
             dataSource={[
@@ -441,46 +455,84 @@ const TagManagement: React.FC = () => {
                     ) : (
                       <ColorDot color={item.color} />
                     )}
-                    <span style={{ flex: 1 }}>{item.name}</span>
-                    <span style={{ color: '#999', fontSize: 12 }}>({item.tagCount || 0})</span>
+                    <span
+                      style={{
+                        flex: 1,
+                        fontSize: 13,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {`${item.name}(${item.tagCount || 0})`}
+                    </span>
                   </div>
                 </List.Item>
               );
             }}
           />
-        </Card>
+        </div>
 
-        <Card
-          style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}
-          bodyStyle={{ padding: 16, display: 'flex', flexDirection: 'column', minHeight: 0 }}
-          title={
+        {/* 右侧标签列表 */}
+        <div
+          style={{
+            flex: 1,
+            padding: '8px 0 8px 8px',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}
+        >
+          {/* 顶部工具栏 */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+                marginBottom: 8,
+              flexShrink: 0,
+            }}
+          >
             <Space>
-              <span>标签列表</span>
+              <span style={{ fontWeight: 500, fontSize: 13 }}>标签列表</span>
               {selectedCategoryId === null && <Tag color="blue">全部</Tag>}
             </Space>
-          }
-        >
-          <div style={{ marginBottom: 16, display: 'flex', gap: 8, flexShrink: 0 }}>
-            <AuthButton perm="app:tag:add">
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleAddTag}>
-                新增标签
-              </Button>
-            </AuthButton>
-            {selectedCategoryId === null && (
-              <Input
-                placeholder="搜索标签名称"
-                prefix={<SearchOutlined />}
-                value={searchName}
-                onChange={(e) => {
-                  setSearchName(e.target.value);
-                  setTagPagination({ current: 1, pageSize: 10 });
-                }}
-                style={{ width: 200 }}
-                allowClear
-              />
-            )}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                maxWidth: 420,
+                flex: 1,
+                justifyContent: 'flex-end',
+              }}
+            >
+              {selectedCategoryId === null && (
+                <Input
+                  placeholder="搜索标签名称"
+                  prefix={<SearchOutlined />}
+                  value={searchName}
+                  onChange={(e) => {
+                    setSearchName(e.target.value);
+                    setTagPagination({ current: 1, pageSize: 10 });
+                  }}
+                  allowClear
+                  style={{
+                    maxWidth: 260,
+                    width: '100%',
+                  }}
+                />
+              )}
+              <AuthButton perm="app:tag:add">
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddTag}>
+                  新增标签
+                </Button>
+              </AuthButton>
+            </div>
           </div>
 
+          {/* 表格区域：内部滚动 */}
           <div
             style={{
               flex: 1,
@@ -499,21 +551,38 @@ const TagManagement: React.FC = () => {
               onRow={() => ({
                 style: { height: 40 },
               })}
-              // 宽度自适应卡片，表头固定，tbody 在卡片内部滚动，高度始终受 Card body 限制
-              scroll={{ x: 'max-content', y: '100%' }}
+              // 表头固定，tbody 在内容区内部滚动，分页条固定在页面底部
+              scroll={{ x: 'max-content', y: 'calc(100vh - 260px)' }}
               sticky
-              pagination={{
-                current: tagPagination.current,
-                pageSize: tagPagination.pageSize,
-                total: tagData?.total,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total) => `共 ${total} 条`,
-                onChange: (page, size) => setTagPagination({ current: page, pageSize: size }),
-              }}
+              pagination={false}
             />
           </div>
-        </Card>
+        </div>
+      </div>
+
+      {/* 底部分页条，固定在页面最底部 */}
+      <div
+        style={{
+          height: 48,
+          borderTop: '1px solid #f0f0f0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          padding: '0 16px',
+          flexShrink: 0,
+          background: '#fff',
+        }}
+      >
+        <Pagination
+          current={tagPagination.current}
+          pageSize={tagPagination.pageSize}
+          total={tagData?.total}
+          size="small"
+          showSizeChanger
+          showQuickJumper
+          showTotal={(total) => `共 ${total} 条`}
+          onChange={(page, size) => setTagPagination({ current: page, pageSize: size || tagPagination.pageSize })}
+        />
       </div>
 
       {/* 分类编辑弹窗 */}

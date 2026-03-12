@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Select, Button } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
 import { useUserManagementStore } from '@/store/userManagementStore';
 import type { FilterCondition } from '@/store/userManagementStore';
 import { FIELD_FILTER_CONFIG } from '../../utils/filter-utils';
 import ValueInput from './ValueInput';
+
+const TAG_FILTER_CONFIG = {
+  operators: [{ label: '包含', value: 'contains' }],
+  valueType: 'tagCascade' as const,
+};
 
 interface FilterConditionRowProps {
   condition: FilterCondition;
@@ -15,15 +20,32 @@ interface FilterConditionRowProps {
 const FilterConditionRow: React.FC<FilterConditionRowProps> = ({ condition, onChange, onRemove }) => {
   const { fieldDefinitions } = useUserManagementStore();
 
+  const fieldSelectOptions = useMemo(
+    () => [
+      ...fieldDefinitions.map(f => ({ label: f.fieldName, value: f.fieldKey })),
+      { label: '标签', value: 'tags' },
+    ],
+    [fieldDefinitions],
+  );
+
+  const isTagField = condition.field === 'tags';
   const currentField = fieldDefinitions.find(f => f.fieldKey === condition.field);
-  const fieldType = currentField?.fieldType || 'TEXT';
-  const filterConfig = FIELD_FILTER_CONFIG[fieldType] || FIELD_FILTER_CONFIG['TEXT'];
+  const fieldType = isTagField ? 'TAG_CASCADE' : (currentField?.fieldType || 'TEXT');
+  const filterConfig = isTagField ? TAG_FILTER_CONFIG : (FIELD_FILTER_CONFIG[fieldType] || FIELD_FILTER_CONFIG['TEXT']);
 
   const handleFieldChange = (fieldKey: string) => {
+    if (fieldKey === 'tags') {
+      onChange(condition.id, {
+        field: 'tags',
+        operator: 'contains',
+        value: undefined,
+        type: 'tagCascade',
+      });
+      return;
+    }
     const newField = fieldDefinitions.find(f => f.fieldKey === fieldKey);
     const newFieldType = newField?.fieldType || 'TEXT';
     const newFilterConfig = FIELD_FILTER_CONFIG[newFieldType] || FIELD_FILTER_CONFIG['TEXT'];
-    
     onChange(condition.id, {
       field: fieldKey,
       operator: newFilterConfig.operators[0].value,
@@ -37,7 +59,7 @@ const FilterConditionRow: React.FC<FilterConditionRowProps> = ({ condition, onCh
       <Select
         value={condition.field}
         onChange={handleFieldChange}
-        options={fieldDefinitions.map(f => ({ label: f.fieldName, value: f.fieldKey }))}
+        options={fieldSelectOptions}
         style={{ width: 160 }}
         placeholder="选择字段"
         showSearch
