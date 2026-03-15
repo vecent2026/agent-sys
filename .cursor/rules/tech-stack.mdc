@@ -18,6 +18,8 @@ alwaysApply: false
 | JUnit | 5.x |
 | Mockito | 4.x |
 | Testcontainers | 1.19.3 |
+| Python |  |
+| FastAPI |  |
 
 ## 前端
 
@@ -31,3 +33,5 @@ alwaysApply: false
 | Zustand | 5.0.9 |
 | React Router | 7.11.0 |
 | Vitest | 4.0.16 |
+
+允许根据项目实际情况引入新技术栈，但需得到同意后才能增加

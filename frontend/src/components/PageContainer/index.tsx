@@ -2,7 +2,7 @@ import React from 'react';
 import { Card } from 'antd';
 
 interface PageContainerProps {
-  title?: string;
+  title?: React.ReactNode;
   children: React.ReactNode;
   extra?: React.ReactNode;
 }
@@ -24,9 +24,16 @@ export const PageContainer: React.FC<PageContainerProps> = ({ title, children, e
   //   }),
   // ];
 
+  const hasHeader = title != null || extra != null;
+  if (!hasHeader) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        {children}
+      </div>
+    );
+  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* <Breadcrumb items={breadcrumbItems} style={{ marginBottom: 16 }} /> */}
       <Card title={title} extra={extra} variant="borderless" style={{ boxShadow: 'none' }}>
         {children}
       </Card>

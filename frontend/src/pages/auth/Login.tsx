@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, Card, message } from 'antd';
+import { Form, Input, Card, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '@/store/userStore';
 import { login, getUserInfo, getMenus } from '@/api/auth';
+import { PrimaryButton } from '@/design-system/components/Buttons';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -59,7 +60,16 @@ const Login: React.FC = () => {
   };
 
   return (
-    <Card style={{ width: 400, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+    <Card
+      style={{
+        width: 400,
+        boxShadow: '0 20px 45px rgba(15, 23, 42, 0.18)',
+        borderRadius: 16,
+        backdropFilter: 'blur(18px)',
+        background: 'rgba(248, 250, 252, 0.92)',
+        border: '1px solid rgba(148, 163, 184, 0.35)',
+      }}
+    >
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
         <h2 style={{ margin: 0 }}>系统登录</h2>
       </div>
@@ -83,9 +93,9 @@ const Login: React.FC = () => {
         </Form.Item>
 
         <Form.Item>
-          <Button type="primary" htmlType="submit" block loading={loading}>
+          <PrimaryButton htmlType="submit" block loading={loading}>
             登录
-          </Button>
+          </PrimaryButton>
         </Form.Item>
       </Form>
     </Card>

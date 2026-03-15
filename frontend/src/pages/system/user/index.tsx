@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Switch, message, Popconfirm, Space, Drawer, Tag } from 'antd';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { Table, Button, Modal, Form, Input, Select, Switch, message, Popconfirm, Space, Drawer, Tag, Pagination } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getUserList, createUser, updateUser, deleteUser, resetUserPassword, updateUserStatus, getUserRoles, assignUserRoles } from '@/api/user';
 import { getAllRoles } from '@/api/role';
 import { PageContainer } from '@/components/PageContainer';
 import { AuthButton } from '@/components/AuthButton';
+import { TablePageLayout } from '@/design-system/components/TablePageLayout';
+import { PrimaryButton } from '@/design-system/components/Buttons';
+import { designTokens } from '@/design-system/theme';
 import type { UserInfo, UserForm } from '@/types/user';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import { debounce } from 'lodash-es';
 
 const UserList: React.FC = () => {
   const [form] = Form.useForm();
@@ -23,7 +27,7 @@ const UserList: React.FC = () => {
   
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 10,
+    pageSize: 20,
   });
   const [searchParams, setSearchParams] = useState<{username?: string; mobile?: string; status?: number}>({});
 
@@ -191,6 +195,32 @@ const UserList: React.FC = () => {
     }
   };
 
+  const applySearchParams = useCallback((values: Record<string, unknown>) => {
+    setSearchParams(values);
+    setPagination((prev) => ({ ...prev, current: 1 }));
+  }, []);
+
+  const debouncedApply = useMemo(() => debounce(applySearchParams, 300), [applySearchParams]);
+
+  useEffect(() => () => debouncedApply.cancel(), [debouncedApply]);
+
+  const handleFilterChange = useCallback(
+    (changedValues: Record<string, unknown>, allValues: Record<string, unknown>) => {
+      const params = {
+        username: allValues.username,
+        mobile: allValues.mobile,
+        status: allValues.status,
+      };
+      if ('username' in changedValues || 'mobile' in changedValues) {
+        debouncedApply(params);
+      } else {
+        debouncedApply.cancel();
+        applySearchParams(params);
+      }
+    },
+    [applySearchParams, debouncedApply]
+  );
+
   const handleRoleSubmit = async () => {
     try {
       const values = await roleForm.validateFields();
@@ -318,71 +348,101 @@ const UserList: React.FC = () => {
   ];
 
   return (
-    <PageContainer
-      title="管理员"
-      extra={
-        <AuthButton perm="sys:user:add">
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-            新增管理员
-          </Button>
-        </AuthButton>
-      }
-    >
-      <Form layout="inline" style={{ marginBottom: 16 }} onFinish={(values) => {
-        setSearchParams(values);
-        setPagination({ ...pagination, current: 1 });
-      }}>
-        <Form.Item name="username" label="用户名">
-          <Input placeholder="请输入用户名" allowClear />
-        </Form.Item>
-        <Form.Item name="mobile" label="手机号">
-          <Input placeholder="请输入手机号" allowClear />
-        </Form.Item>
-        <Form.Item name="status" label="状态">
-          <Select placeholder="请选择" allowClear style={{ width: 120 }}>
-            <Select.Option value={1}>启用</Select.Option>
-            <Select.Option value={0}>禁用</Select.Option>
-          </Select>
-        </Form.Item>
-        <Form.Item>
-          <Button type="primary" htmlType="submit">查询</Button>
-        </Form.Item>
-      </Form>
-
-      <Table
-        columns={columns}
-        dataSource={userData?.records}
-        rowKey="id"
-        loading={isLoading}
-        scroll={{ x: 1200, y: 'calc(100vh - 320px)' }}
-        pagination={{
-          current: pagination.current,
-          pageSize: pagination.pageSize,
-          total: userData?.total,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: (total) => `共 ${total} 条`,
-          onChange: (page, size) => setPagination({ current: page, pageSize: size }),
-        }}
-      />
+    <PageContainer>
+      <TablePageLayout
+        toolbar={
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 16,
+            }}
+          >
+            <div>
+              <AuthButton perm="sys:user:add">
+                <PrimaryButton icon={<PlusOutlined />} onClick={handleAdd}>
+                  新增管理员
+                </PrimaryButton>
+              </AuthButton>
+            </div>
+            <Form
+              layout="inline"
+              style={{ rowGap: 16 }}
+              onValuesChange={handleFilterChange}
+              initialValues={{
+                username: searchParams.username,
+                mobile: searchParams.mobile,
+                status: searchParams.status,
+              }}
+            >
+              <Form.Item name="username" label="用户名">
+                <Input placeholder="请输入用户名" allowClear />
+              </Form.Item>
+              <Form.Item name="mobile" label="手机号">
+                <Input placeholder="请输入手机号" allowClear />
+              </Form.Item>
+              <Form.Item name="status" label="状态">
+                <Select placeholder="请选择" allowClear style={{ width: 120 }}>
+                  <Select.Option value={1}>启用</Select.Option>
+                  <Select.Option value={0}>禁用</Select.Option>
+                </Select>
+              </Form.Item>
+            </Form>
+          </div>
+        }
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Pagination
+              size="small"
+              current={pagination.current}
+              pageSize={pagination.pageSize}
+              total={userData?.total}
+              showSizeChanger
+              showQuickJumper
+              pageSizeOptions={[20, 50, 100]}
+              showTotal={(total) => `共 ${total} 条`}
+              onChange={(page, pageSize) =>
+                setPagination((prev) => ({
+                  current: pageSize && pageSize !== prev.pageSize ? 1 : page,
+                  pageSize: pageSize || prev.pageSize,
+                }))
+              }
+            />
+          </div>
+        }
+      >
+        <Table
+          columns={columns}
+          dataSource={userData?.records}
+          rowKey="id"
+          loading={isLoading}
+          size="small"
+          onRow={() => ({ style: { height: 40 } })}
+          scroll={{ x: 'max-content', y: 'calc(100vh - 360px)' }}
+          sticky
+          pagination={false}
+        />
+      </TablePageLayout>
 
       <Drawer
         title={editingId ? '编辑管理员' : '新增管理员'}
         open={visible}
         onClose={() => setVisible(false)}
         size="large"
-        forceRender
-        extra={
-          <Space>
-            <Button onClick={() => setVisible(false)}>取消</Button>
-            <Button 
-              type="primary" 
-              onClick={handleSubmit}
-              loading={createMutation.isPending || updateMutation.isPending}
-            >
-              确定
-            </Button>
-          </Space>
+        destroyOnClose
+        footer={
+          <div style={{ textAlign: 'right', borderTop: `1px solid ${designTokens.colorBorder}`, paddingTop: 16 }}>
+            <Space>
+              <Button onClick={() => setVisible(false)}>取消</Button>
+              <PrimaryButton
+                onClick={handleSubmit}
+                loading={createMutation.isPending || updateMutation.isPending}
+              >
+                确定
+              </PrimaryButton>
+            </Space>
+          </div>
         }
       >
         <Form form={form} layout="vertical">

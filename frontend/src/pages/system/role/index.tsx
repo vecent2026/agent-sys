@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, message, Popconfirm, Tree, Drawer } from 'antd';
+import { Table, Button, Form, Input, message, Popconfirm, Tree, Drawer, Pagination, Space } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getRoleList, createRole, updateRole, deleteRole, getRolePermissions, assignRolePermissions } from '@/api/role';
 import { getPermissionTree } from '@/api/permission';
 import { PageContainer } from '@/components/PageContainer';
+import { TablePageLayout } from '@/design-system/components/TablePageLayout';
 import { AuthButton } from '@/components/AuthButton';
 import type { Role, RoleForm } from '@/types/role';
 import type { ColumnsType } from 'antd/es/table';
 import { formatDate } from '@/utils/dateUtils';
+import { designTokens } from '@/design-system/theme';
 
 const RoleList: React.FC = () => {
   const [form] = Form.useForm();
@@ -22,7 +24,7 @@ const RoleList: React.FC = () => {
   // Pagination state
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 10,
+    pageSize: 20,
   });
 
   // Fetch Roles
@@ -141,6 +143,8 @@ const RoleList: React.FC = () => {
       title: '角色名称',
       dataIndex: 'roleName',
       key: 'roleName',
+      fixed: 'left',
+      width: 150,
     },
     {
       title: '角色标识',
@@ -175,7 +179,7 @@ const RoleList: React.FC = () => {
       width: 250,
       fixed: 'right',
       render: (_, record) => (
-        <div style={{ display: 'flex', gap: 8 }}>
+        <Space size="small">
           <AuthButton perm="sys:role:edit">
             <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
               编辑
@@ -193,46 +197,75 @@ const RoleList: React.FC = () => {
               </Button>
             </Popconfirm>
           </AuthButton>
-        </div>
+        </Space>
       ),
     },
   ];
 
   return (
-    <PageContainer
-      title="角色管理"
-      extra={
-        <AuthButton perm="sys:role:add">
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-            新增角色
-          </Button>
-        </AuthButton>
-      }
-    >
-      <Table
-        columns={columns}
-        dataSource={roleData?.records}
-        rowKey="id"
-        loading={isLoading}
-        pagination={{
-          current: pagination.current,
-          pageSize: pagination.pageSize,
-          total: roleData?.total,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: (total) => `共 ${total} 条`,
-          onChange: (page, size) => setPagination({ current: page, pageSize: size }),
-        }}
-        scroll={{ x: 'max-content' }}
-      />
+    <PageContainer>
+      <TablePageLayout
+        toolbar={
+          <AuthButton perm="sys:role:add">
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+              新增角色
+            </Button>
+          </AuthButton>
+        }
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Pagination
+              size="small"
+              current={pagination.current}
+              pageSize={pagination.pageSize}
+              total={roleData?.total}
+              showSizeChanger
+              showQuickJumper
+              pageSizeOptions={[20, 50, 100]}
+              showTotal={(total) => `共 ${total} 条`}
+              onChange={(page, pageSize) =>
+                setPagination((prev) => ({
+                  current: pageSize && pageSize !== prev.pageSize ? 1 : page,
+                  pageSize: pageSize || prev.pageSize,
+                }))
+              }
+            />
+          </div>
+        }
+      >
+        <Table
+          columns={columns}
+          dataSource={roleData?.records}
+          rowKey="id"
+          loading={isLoading}
+          size="small"
+          onRow={() => ({ style: { height: 40 } })}
+          scroll={{ x: 'max-content', y: 'calc(100vh - 360px)' }}
+          sticky
+          pagination={false}
+        />
+      </TablePageLayout>
 
-      <Modal
+      <Drawer
         title={editingId ? '编辑角色' : '新增角色'}
         open={visible}
-        onOk={handleSubmit}
-        onCancel={() => setVisible(false)}
-        confirmLoading={createMutation.isPending || updateMutation.isPending}
-        forceRender
+        onClose={() => setVisible(false)}
+        width={480}
+        destroyOnClose
+        footer={
+          <div style={{ textAlign: 'right', borderTop: `1px solid ${designTokens.colorBorder}`, paddingTop: 16 }}>
+            <Space>
+              <Button onClick={() => setVisible(false)}>取消</Button>
+              <Button
+                type="primary"
+                onClick={handleSubmit}
+                loading={createMutation.isPending || updateMutation.isPending}
+              >
+                确定
+              </Button>
+            </Space>
+          </div>
+        }
       >
         <Form form={form} layout="vertical">
           <Form.Item
@@ -265,17 +298,26 @@ const RoleList: React.FC = () => {
             <Input.TextArea rows={4} placeholder="请输入描述" />
           </Form.Item>
         </Form>
-      </Modal>
+      </Drawer>
 
       <Drawer
         title={`分配权限 - ${currentRole?.roleName}`}
         open={permVisible}
         onClose={() => setPermVisible(false)}
         size="large"
-        extra={
-          <Button type="primary" onClick={handlePermSubmit} loading={assignPermMutation.isPending}>
-            保存
-          </Button>
+        footer={
+          <div style={{ textAlign: 'right', borderTop: `1px solid ${designTokens.colorBorder}`, paddingTop: 16 }}>
+            <Space>
+              <Button onClick={() => setPermVisible(false)}>取消</Button>
+              <Button
+                type="primary"
+                onClick={handlePermSubmit}
+                loading={assignPermMutation.isPending}
+              >
+                保存
+              </Button>
+            </Space>
+          </div>
         }
       >
         {permTree && (

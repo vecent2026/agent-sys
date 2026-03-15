@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Table, Button, Form, Input, Select, Modal, message, Popconfirm, Space, List, Tag, Popover, Tooltip, Pagination } from 'antd';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Table, Button, Form, Input, Select, Drawer, message, Popconfirm, Space, List, Tag, Popover, Tooltip, Pagination } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, MoreOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTagCategoryList, createTagCategory, updateTagCategory, deleteTagCategory, getAppTagList, createAppTag, updateAppTag, deleteAppTag, updateAppTagStatus } from '@/api/app-user';
@@ -8,22 +8,8 @@ import type { AppUserTagDetail, AppUserTagCategory } from '@/types/app-user';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { TAG_COLORS } from '@/types/app-user';
-
-// 颜色映射表（Ant Design Tag 颜色 -> CSS 颜色值）
-const COLOR_MAP: Record<string, string> = {
-  blue: '#1890ff',
-  green: '#52c41a',
-  orange: '#fa8c16',
-  red: '#f5222d',
-  purple: '#722ed1',
-  cyan: '#13c2c2',
-  magenta: '#eb2f96',
-  volcano: '#fa541c',
-  gold: '#faad14',
-  lime: '#a0d911',
-  geekblue: '#2f54eb',
-  default: '#d9d9d9',
-};
+import { designTokens } from '@/design-system/theme';
+import { debounce } from 'lodash-es';
 
 const TagManagement: React.FC = () => {
   const queryClient = useQueryClient();
@@ -32,11 +18,25 @@ const TagManagement: React.FC = () => {
   const categoryColor = Form.useWatch('color', categoryForm);
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
-  const [tagModalVisible, setTagModalVisible] = useState(false);
+  const [categoryDrawerVisible, setCategoryDrawerVisible] = useState(false);
+  const [tagDrawerVisible, setTagDrawerVisible] = useState(false);
   const [editingCategory, setEditingCategory] = useState<AppUserTagCategory | null>(null);
   const [editingTag, setEditingTag] = useState<AppUserTagDetail | null>(null);
   const [searchName, setSearchName] = useState('');
+  const [debouncedSearchName, setDebouncedSearchName] = useState('');
+
+  const debouncedSetSearch = useMemo(
+    () => debounce((value: string) => {
+      setDebouncedSearchName(value);
+      setTagPagination((prev) => ({ ...prev, current: 1 }));
+    }, 300),
+    []
+  );
+
+  useEffect(() => {
+    debouncedSetSearch(searchName);
+    return () => debouncedSetSearch.cancel();
+  }, [searchName, debouncedSetSearch]);
 
   const [tagPagination, setTagPagination] = useState({
     current: 1,
@@ -49,13 +49,13 @@ const TagManagement: React.FC = () => {
   });
 
   const { data: tagData, isLoading: tagLoading } = useQuery({
-    queryKey: ['app-tags', tagPagination, selectedCategoryId, searchName],
+    queryKey: ['app-tags', tagPagination, selectedCategoryId, debouncedSearchName],
     queryFn: () =>
       getAppTagList({
         page: tagPagination.current,
         size: tagPagination.pageSize,
         categoryId: selectedCategoryId || undefined,
-        name: searchName || undefined,
+        name: debouncedSearchName || undefined,
       }),
   });
 
@@ -74,7 +74,7 @@ const TagManagement: React.FC = () => {
     mutationFn: createTagCategory,
     onSuccess: () => {
       message.success('创建成功');
-      setCategoryModalVisible(false);
+      setCategoryDrawerVisible(false);
       categoryForm.resetFields();
       queryClient.invalidateQueries({ queryKey: ['tag-categories'] });
     },
@@ -84,7 +84,7 @@ const TagManagement: React.FC = () => {
     mutationFn: ({ id, data }: { id: number; data: any }) => updateTagCategory(id, data),
     onSuccess: () => {
       message.success('更新成功');
-      setCategoryModalVisible(false);
+      setCategoryDrawerVisible(false);
       categoryForm.resetFields();
       setEditingCategory(null);
       queryClient.invalidateQueries({ queryKey: ['tag-categories'] });
@@ -108,7 +108,7 @@ const TagManagement: React.FC = () => {
     mutationFn: createAppTag,
     onSuccess: () => {
       message.success('创建成功');
-      setTagModalVisible(false);
+      setTagDrawerVisible(false);
       tagForm.resetFields();
       queryClient.invalidateQueries({ queryKey: ['app-tags'] });
       queryClient.invalidateQueries({ queryKey: ['tag-categories'] });
@@ -119,7 +119,7 @@ const TagManagement: React.FC = () => {
     mutationFn: ({ id, data }: { id: number; data: any }) => updateAppTag(id, data),
     onSuccess: () => {
       message.success('更新成功');
-      setTagModalVisible(false);
+      setTagDrawerVisible(false);
       tagForm.resetFields();
       setEditingTag(null);
       queryClient.invalidateQueries({ queryKey: ['app-tags'] });
@@ -148,13 +148,13 @@ const TagManagement: React.FC = () => {
     setEditingCategory(null);
     categoryForm.resetFields();
     categoryForm.setFieldsValue({ color: 'blue' });
-    setCategoryModalVisible(true);
+    setCategoryDrawerVisible(true);
   };
 
   const handleEditCategory = (category: AppUserTagCategory) => {
     setEditingCategory(category);
     categoryForm.setFieldsValue(category);
-    setCategoryModalVisible(true);
+    setCategoryDrawerVisible(true);
   };
 
   const handleDeleteCategory = (id: number) => {
@@ -174,13 +174,13 @@ const TagManagement: React.FC = () => {
     setEditingTag(null);
     tagForm.resetFields();
     tagForm.setFieldsValue({ categoryId: selectedCategoryId });
-    setTagModalVisible(true);
+    setTagDrawerVisible(true);
   };
 
   const handleEditTag = (tag: AppUserTagDetail) => {
     setEditingTag(tag);
     tagForm.setFieldsValue(tag);
-    setTagModalVisible(true);
+    setTagDrawerVisible(true);
   };
 
   const handleDeleteTag = (id: number) => {
@@ -264,7 +264,7 @@ const TagManagement: React.FC = () => {
               <Button
                 type="link"
                 size="small"
-                style={{ color: record.status === 1 ? '#fa541c' : '#52c41a' }}
+                style={{ color: record.status === 1 ? designTokens.colorWarning : designTokens.colorSuccess }}
               >
                 {record.status === 1 ? '禁用' : '启用'}
               </Button>
@@ -296,7 +296,7 @@ const TagManagement: React.FC = () => {
               width: 24,
               height: 24,
               borderRadius: '50%',
-              backgroundColor: COLOR_MAP[c.value] || c.value,
+              backgroundColor: designTokens.tagColorMap[c.value] || c.value,
               cursor: 'pointer',
               position: 'relative',
               display: 'flex',
@@ -307,7 +307,7 @@ const TagManagement: React.FC = () => {
           >
             {value === c.value && (
               <span style={{
-                color: '#fff',
+                color: designTokens.colorBgContainer,
                 fontSize: 12,
                 fontWeight: 'bold',
               }}>✓</span>
@@ -326,7 +326,7 @@ const TagManagement: React.FC = () => {
         width: 12,
         height: 12,
         borderRadius: '50%',
-        backgroundColor: COLOR_MAP[color || 'blue'] || color || '#1890ff',
+        backgroundColor: designTokens.tagColorMap[color || 'blue'] || color || designTokens.tagColorMap.blue,
         marginRight: 8,
         flexShrink: 0,
       }}
@@ -371,7 +371,7 @@ const TagManagement: React.FC = () => {
         flexDirection: 'column',
         height: 'calc(100vh - 196px)',
         overflow: 'hidden',
-        background: '#fff',
+        background: designTokens.colorBgContainer,
         boxSizing: 'border-box',
       }}
     >
@@ -386,7 +386,7 @@ const TagManagement: React.FC = () => {
         <div
           style={{
             width: 280,
-            borderRight: '1px solid #f0f0f0',
+            borderRight: `1px solid ${designTokens.colorBorder}`,
             padding: '8px 8px 8px 0',
             boxSizing: 'border-box',
             display: 'flex',
@@ -424,7 +424,7 @@ const TagManagement: React.FC = () => {
                   onClick={() => setSelectedCategoryId(isAll ? null : item.id)}
                   style={{
                     cursor: 'pointer',
-                    backgroundColor: isSelected ? '#e6f7ff' : 'transparent',
+                    backgroundColor: isSelected ? designTokens.colorPrimaryBg : 'transparent',
                     padding: '10px 12px',
                     borderRadius: 4,
                     transition: 'all 0.2s',
@@ -508,15 +508,17 @@ const TagManagement: React.FC = () => {
                 justifyContent: 'flex-end',
               }}
             >
+              <AuthButton perm="app:tag:add">
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddTag}>
+                  新增标签
+                </Button>
+              </AuthButton>
               {selectedCategoryId === null && (
                 <Input
                   placeholder="搜索标签名称"
                   prefix={<SearchOutlined />}
                   value={searchName}
-                  onChange={(e) => {
-                    setSearchName(e.target.value);
-                    setTagPagination({ current: 1, pageSize: 10 });
-                  }}
+                  onChange={(e) => setSearchName(e.target.value)}
                   allowClear
                   style={{
                     maxWidth: 260,
@@ -524,11 +526,6 @@ const TagManagement: React.FC = () => {
                   }}
                 />
               )}
-              <AuthButton perm="app:tag:add">
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddTag}>
-                  新增标签
-                </Button>
-              </AuthButton>
             </div>
           </div>
 
@@ -564,13 +561,13 @@ const TagManagement: React.FC = () => {
       <div
         style={{
           height: 48,
-          borderTop: '1px solid #f0f0f0',
+          borderTop: `1px solid ${designTokens.colorBorder}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-end',
           padding: '0 16px',
           flexShrink: 0,
-          background: '#fff',
+          background: designTokens.colorBgContainer,
         }}
       >
         <Pagination
@@ -585,14 +582,27 @@ const TagManagement: React.FC = () => {
         />
       </div>
 
-      {/* 分类编辑弹窗 */}
-      <Modal
+      {/* 分类编辑抽屉 */}
+      <Drawer
         title={editingCategory ? '编辑分类' : '新增分类'}
-        open={categoryModalVisible}
-        onOk={handleCategorySubmit}
-        onCancel={() => setCategoryModalVisible(false)}
-        confirmLoading={createCategoryMutation.isPending || updateCategoryMutation.isPending}
+        open={categoryDrawerVisible}
+        onClose={() => setCategoryDrawerVisible(false)}
         destroyOnClose
+        width={480}
+        footer={
+          <div style={{ textAlign: 'right', borderTop: `1px solid ${designTokens.colorBorder}`, paddingTop: 16 }}>
+            <Space>
+              <Button onClick={() => setCategoryDrawerVisible(false)}>取消</Button>
+              <Button
+                type="primary"
+                onClick={handleCategorySubmit}
+                loading={createCategoryMutation.isPending || updateCategoryMutation.isPending}
+              >
+                确定
+              </Button>
+            </Space>
+          </div>
+        }
       >
         <Form form={categoryForm} layout="vertical">
           <Form.Item name="name" label="分类名称" rules={[{ required: true, message: '请输入分类名称' }]}>
@@ -611,16 +621,29 @@ const TagManagement: React.FC = () => {
             <Input type="number" placeholder="请输入排序号" />
           </Form.Item>
         </Form>
-      </Modal>
+      </Drawer>
 
-      {/* 标签编辑弹窗 */}
-      <Modal
+      {/* 标签编辑抽屉 */}
+      <Drawer
         title={editingTag ? '编辑标签' : '新增标签'}
-        open={tagModalVisible}
-        onOk={handleTagSubmit}
-        onCancel={() => setTagModalVisible(false)}
-        confirmLoading={createTagMutation.isPending || updateTagMutation.isPending}
+        open={tagDrawerVisible}
+        onClose={() => setTagDrawerVisible(false)}
         destroyOnClose
+        width={480}
+        footer={
+          <div style={{ textAlign: 'right', borderTop: `1px solid ${designTokens.colorBorder}`, paddingTop: 16 }}>
+            <Space>
+              <Button onClick={() => setTagDrawerVisible(false)}>取消</Button>
+              <Button
+                type="primary"
+                onClick={handleTagSubmit}
+                loading={createTagMutation.isPending || updateTagMutation.isPending}
+              >
+                确定
+              </Button>
+            </Space>
+          </div>
+        }
       >
         <Form form={tagForm} layout="vertical">
           <Form.Item name="categoryId" label="所属分类" rules={[{ required: true, message: '请选择分类' }]}>
@@ -636,7 +659,7 @@ const TagManagement: React.FC = () => {
             <Input.TextArea placeholder="请输入描述" rows={3} />
           </Form.Item>
         </Form>
-      </Modal>
+      </Drawer>
     </div>
   );
 };

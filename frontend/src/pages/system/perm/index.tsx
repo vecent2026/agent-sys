@@ -1,13 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { Table, Button, Modal, Form, Input, InputNumber, Radio, Switch, message, Popconfirm, Tag } from 'antd';
+import { Table, Button, Form, Input, InputNumber, Radio, Switch, message, Popconfirm, Tag, Space, Drawer } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getPermissionTree, createPermission, updatePermission, deletePermission } from '@/api/permission';
 import { PageContainer } from '@/components/PageContainer';
+import { TablePageLayout } from '@/design-system/components/TablePageLayout';
 import { AuthButton } from '@/components/AuthButton';
 import { IconPicker } from '@/components/IconPicker';
 import type { Permission, PermissionForm } from '@/types/permission';
 import type { ColumnsType } from 'antd/es/table';
+import { designTokens } from '@/design-system/theme';
 
 const PermissionList: React.FC = () => {
   const [form] = Form.useForm();
@@ -180,17 +182,8 @@ const PermissionList: React.FC = () => {
       key: 'type',
       width: 100,
       render: (type) => {
-        const colors: Record<string, string> = {
-          DIR: 'blue',
-          MENU: 'green',
-          BTN: 'orange',
-        };
-        const texts: Record<string, string> = {
-          DIR: '目录',
-          MENU: '菜单',
-          BTN: '按钮',
-        };
-        return <Tag color={colors[type]}>{texts[type]}</Tag>;
+        const config = designTokens.permissionTypeMap[type] || { color: 'default', label: type };
+        return <Tag color={config.color}>{config.label}</Tag>;
       },
     },
     {
@@ -240,7 +233,7 @@ const PermissionList: React.FC = () => {
       width: 280, // 增加操作列宽度以容纳三个按钮
       fixed: 'right', // 固定右侧
       render: (_, record) => (
-        <div style={{ display: 'flex', gap: 8 }}>
+        <Space size="small">
           {record.type !== 'BTN' && (
             <AuthButton perm="sys:menu:add">
               <Button type="link" size="small" icon={<PlusOutlined />} onClick={() => handleAdd(record.id)}>
@@ -260,44 +253,60 @@ const PermissionList: React.FC = () => {
               </Button>
             </Popconfirm>
           </AuthButton>
-        </div>
+        </Space>
       ),
     },
   ];
 
   return (
-    <PageContainer
-      title="权限管理"
-      extra={
-        <AuthButton perm="sys:menu:add">
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAdd(null)}>
-            新增根节点
-          </Button>
-        </AuthButton>
-      }
-    >
-      <Table
-        columns={columns}
-        dataSource={treeData}
-        rowKey="id"
-        loading={isLoading}
-        pagination={false}
-        scroll={{ x: 1200, y: 'calc(100vh - 320px)' }}
-        expandedRowKeys={expandedRowKeys}
-        onExpandedRowsChange={(keys) => setExpandedRowKeys(keys as number[])}
-        expandable={{
-          defaultExpandAllRows: false,
-        }}
-      />
+    <PageContainer>
+      <TablePageLayout
+        toolbar={
+          <AuthButton perm="sys:menu:add">
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => handleAdd(null)}>
+              新增根节点
+            </Button>
+          </AuthButton>
+        }
+      >
+        <Table
+          columns={columns}
+          dataSource={treeData}
+          rowKey="id"
+          loading={isLoading}
+          size="small"
+          onRow={() => ({ style: { height: 40 } })}
+          pagination={false}
+          scroll={{ x: 'max-content', y: 'calc(100vh - 360px)' }}
+          sticky
+          expandedRowKeys={expandedRowKeys}
+          onExpandedRowsChange={(keys) => setExpandedRowKeys(keys as number[])}
+          expandable={{
+            defaultExpandAllRows: false,
+          }}
+        />
+      </TablePageLayout>
 
-      <Modal
+      <Drawer
         title={editingId ? '编辑权限' : '新增权限'}
         open={visible}
-        onOk={handleSubmit}
-        onCancel={() => setVisible(false)}
-        confirmLoading={createMutation.isPending || updateMutation.isPending}
-        width={600}
-        forceRender
+        onClose={() => setVisible(false)}
+        width={520}
+        destroyOnClose
+        footer={
+          <div style={{ textAlign: 'right', borderTop: `1px solid ${designTokens.colorBorder}`, paddingTop: 16 }}>
+            <Space>
+              <Button onClick={() => setVisible(false)}>取消</Button>
+              <Button
+                type="primary"
+                onClick={handleSubmit}
+                loading={createMutation.isPending || updateMutation.isPending}
+              >
+                确定
+              </Button>
+            </Space>
+          </div>
+        }
       >
         <Form form={form} layout="vertical">
           <Form.Item name="parentId" hidden>
@@ -414,7 +423,7 @@ const PermissionList: React.FC = () => {
             }}
           </Form.Item>
         </Form>
-      </Modal>
+      </Drawer>
     </PageContainer>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Table,
   Button,
@@ -9,12 +9,12 @@ import {
   Space,
   message,
   Popconfirm,
-  Card,
   Tag,
   Tooltip,
   Divider,
   InputNumber,
   Switch,
+  Pagination,
 } from 'antd';
 import {
   PlusOutlined,
@@ -33,6 +33,9 @@ import {
   sortAppFields,
 } from '@/api/app-user';
 import { PageContainer } from '@/components/PageContainer';
+import { TablePageLayout } from '@/design-system/components/TablePageLayout';
+import { designTokens } from '@/design-system/theme';
+import { debounce } from 'lodash-es';
 import { AuthButton } from '@/components/AuthButton';
 import type { AppUserField, AppUserFieldQuery } from '@/types/app-user';
 import type { ColumnsType } from 'antd/es/table';
@@ -77,7 +80,7 @@ const SortableRow: React.FC<SortableRowProps> = (props) => {
     transform: CSS.Transform.toString(transform),
     transition,
     ...(isDragging
-      ? { position: 'relative', zIndex: 9999, background: '#fafafa' }
+      ? { position: 'relative', zIndex: 9999, background: designTokens.colorFillTertiary }
       : {}),
   };
 
@@ -232,10 +235,10 @@ const FieldList: React.FC = () => {
   const [fieldType, setFieldType] = useState<string>('TEXT');
   const [fieldConfig, setFieldConfig] = useState<Record<string, unknown>>({});
 
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 20 });
   const [searchParams, setSearchParams] = useState<AppUserFieldQuery>({
     page: 1,
-    size: 10,
+    size: 20,
   });
 
   const { data: fieldData, isLoading } = useQuery({
@@ -375,7 +378,7 @@ const FieldList: React.FC = () => {
     }
   };
 
-  const handleSearch = (values: Record<string, unknown>) => {
+  const applySearchParams = useCallback((values: Record<string, unknown>) => {
     const params: AppUserFieldQuery = {
       page: 1,
       size: pagination.pageSize,
@@ -384,8 +387,32 @@ const FieldList: React.FC = () => {
       status: values.status as number,
     };
     setSearchParams(params);
-    setPagination({ ...pagination, current: 1 });
-  };
+    setPagination((prev) => ({ ...prev, current: 1 }));
+  }, [pagination.pageSize]);
+
+  const debouncedApply = useMemo(
+    () => debounce(applySearchParams, 300),
+    [applySearchParams]
+  );
+
+  useEffect(() => () => debouncedApply.cancel(), [debouncedApply]);
+
+  const handleFilterChange = useCallback(
+    (changedValues: Record<string, unknown>, allValues: Record<string, unknown>) => {
+      const params = {
+        name: allValues.name,
+        type: allValues.type,
+        status: allValues.status,
+      };
+      if ('name' in changedValues) {
+        debouncedApply(params);
+      } else {
+        debouncedApply.cancel();
+        applySearchParams(params);
+      }
+    },
+    [applySearchParams, debouncedApply]
+  );
 
   const columns: ColumnsType<AppUserField> = [
     {
@@ -393,11 +420,10 @@ const FieldList: React.FC = () => {
       width: 40,
       render: (_, record) => {
         const isNickname = record.fieldKey === 'nickname';
-        const isDefaultField = record.isDefault === 1;
         if (isNickname) {
-          return <HolderOutlined style={{ cursor: 'not-allowed', color: '#ccc' }} />;
+          return <HolderOutlined style={{ cursor: 'not-allowed', color: designTokens.colorTextQuaternary }} />;
         }
-        return <HolderOutlined style={{ cursor: 'grab', color: isDefaultField ? '#999' : '#999' }} />;
+        return <HolderOutlined style={{ cursor: 'grab', color: designTokens.colorTextTertiary }} />;
       },
     },
     {
@@ -405,6 +431,7 @@ const FieldList: React.FC = () => {
       dataIndex: 'fieldName',
       key: 'fieldName',
       width: 180,
+      fixed: 'left',
       render: (text, record) => (
         <Space>
           {text}
@@ -418,7 +445,7 @@ const FieldList: React.FC = () => {
       key: 'fieldKey',
       width: 150,
       render: (text) => (
-        <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>
+        <code style={{ background: designTokens.colorFillQuaternary, padding: '2px 6px', borderRadius: 4 }}>
           {text}
         </code>
       ),
@@ -514,50 +541,75 @@ const FieldList: React.FC = () => {
     .map((r: AppUserField) => String(r.id));
 
   return (
-    <PageContainer title="字段管理">
-      <Card style={{ marginBottom: 16 }}>
-        <Form form={searchForm} layout="inline" onFinish={handleSearch}>
-          <Form.Item name="name" label="字段名称">
-            <Input placeholder="请输入" allowClear style={{ width: 150 }} />
-          </Form.Item>
-          <Form.Item name="type" label="字段类型">
-            <Select placeholder="请选择" allowClear style={{ width: 120 }}>
-              <Option value="TEXT">文本</Option>
-              <Option value="RADIO">单选</Option>
-              <Option value="CHECKBOX">多选</Option>
-              <Option value="LINK">链接</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item name="status" label="状态">
-            <Select placeholder="请选择" allowClear style={{ width: 100 }}>
-              <Option value={1}>启用</Option>
-              <Option value={0}>禁用</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item>
+    <PageContainer>
+      <TablePageLayout
+        toolbar={
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 16,
+            }}
+          >
             <Space>
-              <Button type="primary" htmlType="submit">
-                查询
-              </Button>
-              <Button onClick={() => searchForm.resetFields()}>重置</Button>
+              <Tooltip title="拖拽行可调整字段顺序">
+                <QuestionCircleOutlined style={{ color: designTokens.colorTextTertiary }} />
+              </Tooltip>
+              <AuthButton perm="app:field:add">
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                  新增字段
+                </Button>
+              </AuthButton>
             </Space>
-          </Form.Item>
-        </Form>
-      </Card>
-
-      <Card
-        title="字段列表"
-        extra={
-          <Space>
-            <Tooltip title="拖拽行可调整字段顺序">
-              <QuestionCircleOutlined style={{ color: '#999' }} />
-            </Tooltip>
-            <AuthButton perm="app:field:add">
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                新增字段
-              </Button>
-            </AuthButton>
-          </Space>
+            <Form
+              form={searchForm}
+              layout="inline"
+              style={{ rowGap: 16 }}
+              onValuesChange={handleFilterChange}
+              initialValues={{ name: searchParams.name, type: searchParams.type, status: searchParams.status }}
+            >
+              <Form.Item name="name" label="字段名称">
+                <Input placeholder="请输入" allowClear style={{ width: 150 }} />
+              </Form.Item>
+              <Form.Item name="type" label="字段类型">
+                <Select placeholder="请选择" allowClear style={{ width: 120 }}>
+                  <Option value="TEXT">文本</Option>
+                  <Option value="RADIO">单选</Option>
+                  <Option value="CHECKBOX">多选</Option>
+                  <Option value="LINK">链接</Option>
+                </Select>
+              </Form.Item>
+              <Form.Item name="status" label="状态">
+                <Select placeholder="请选择" allowClear style={{ width: 100 }}>
+                  <Option value={1}>启用</Option>
+                  <Option value={0}>禁用</Option>
+                </Select>
+              </Form.Item>
+            </Form>
+          </div>
+        }
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Pagination
+              size="small"
+              current={pagination.current}
+              pageSize={pagination.pageSize}
+              total={fieldData?.total}
+              showSizeChanger
+              showQuickJumper
+              pageSizeOptions={[20, 50, 100]}
+              showTotal={(total) => `共 ${total} 条`}
+              onChange={(page, pageSize) => {
+                const size = pageSize || pagination.pageSize;
+                setPagination((prev) => ({
+                  current: pageSize && pageSize !== prev.pageSize ? 1 : page,
+                  pageSize: size,
+                }));
+                setSearchParams((prev) => ({ ...prev, page, size }));
+              }}
+            />
+          </div>
         }
       >
         <DndContext
@@ -571,27 +623,20 @@ const FieldList: React.FC = () => {
               dataSource={records}
               rowKey={(record) => String(record.id)}
               loading={isLoading}
+              size="small"
+              onRow={() => ({ style: { height: 40 } })}
+              scroll={{ x: 'max-content', y: 'calc(100vh - 360px)' }}
+              sticky
+              pagination={false}
               components={{
                 body: {
                   row: SortableRow,
                 },
               }}
-              pagination={{
-                current: pagination.current,
-                pageSize: pagination.pageSize,
-                total: fieldData?.total,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total) => `共 ${total} 条`,
-                onChange: (page, size) => {
-                  setPagination({ current: page, pageSize: size });
-                  setSearchParams({ ...searchParams, page, size });
-                },
-              }}
             />
           </SortableContext>
         </DndContext>
-      </Card>
+      </TablePageLayout>
 
       <Drawer
         title={editingId ? '编辑字段' : '新增字段'}
@@ -647,7 +692,7 @@ const FieldList: React.FC = () => {
               },
             ]}
             extra={
-              <span style={{ color: '#999', fontSize: 12 }}>
+              <span style={{ color: designTokens.colorTextTertiary, fontSize: 12 }}>
                 字段标识用于程序中引用该字段，创建后不可修改
               </span>
             }

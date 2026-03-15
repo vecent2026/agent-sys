@@ -8,6 +8,7 @@ import { getUserInfo, getMenus } from '@/api/auth';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import type { Permission } from '@/types/permission';
 import 'dayjs/locale/zh-cn';
+import { appTheme } from '@/design-system/theme';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,7 +72,7 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ConfigProvider locale={zhCN}>
+        <ConfigProvider locale={zhCN} theme={appTheme}>
           {isRestoring ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
               <Spin size="large" />

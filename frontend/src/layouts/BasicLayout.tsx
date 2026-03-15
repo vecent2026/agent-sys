@@ -25,7 +25,7 @@ const getIcon = (iconName?: string) => {
 const BasicLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const {
-    token: { colorBgContainer, borderRadiusLG },
+    token: { colorBgContainer },
   } = theme.useToken();
   const navigate = useNavigate();
   const location = useLocation();
@@ -193,12 +193,12 @@ const BasicLayout: React.FC = () => {
 
   return (
     <Layout style={{ height: '100vh', overflow: 'hidden', display: 'flex', width: '100%' }}>
-      <Sider 
-        trigger={null} 
-        collapsible 
-        collapsed={collapsed} 
+      <Sider
+        trigger={null}
+        collapsible
+        collapsed={collapsed}
         width={collapsed ? 80 : 200}
-        style={{ overflowY: 'auto' }}
+        style={{ overflowY: 'auto', background: '#0F172A' }}
       >
         <div className="demo-logo-vertical" style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.2)' }} />
         <Menu
@@ -296,7 +296,7 @@ const BasicLayout: React.FC = () => {
         </Header>
         <Content
           style={{
-            padding: isUserListPage ? 0 : '24px 16px',
+            padding: 0,
             overflowY: isUserListPage ? 'hidden' : 'auto',
             flex: 1,
             ...(isUserListPage ? { display: 'flex', flexDirection: 'column', minHeight: 0 } : {}),
@@ -305,17 +305,15 @@ const BasicLayout: React.FC = () => {
           {isUserListPage ? (
             <Outlet />
           ) : (
-          <div
-            style={{
-              padding: 24,
-              minHeight: '100%',
-              background: colorBgContainer,
-              borderRadius: borderRadiusLG,
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-            }}
-          >
-            <Outlet />
-          </div>
+            <div
+              style={{
+                padding: 24,
+                minHeight: '100%',
+                background: colorBgContainer,
+              }}
+            >
+              <Outlet />
+            </div>
           )}
         </Content>
       </Layout>

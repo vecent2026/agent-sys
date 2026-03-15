@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Table, Button, Form, Input, Select, DatePicker, Drawer, Tag, Descriptions } from 'antd';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { Table, Button, Form, Input, Select, DatePicker, Drawer, Descriptions, Pagination, Popover } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { getLogList } from '@/api/log';
 import { PageContainer } from '@/components/PageContainer';
@@ -7,6 +7,11 @@ import type { Log } from '@/types/log';
 import type { ColumnsType } from 'antd/es/table';
 import JsonViewer from '@/components/JsonViewer';
 import dayjs from 'dayjs';
+import { TablePageLayout } from '@/design-system/components/TablePageLayout';
+import { LogStatusTag } from '@/design-system/components/LogStatusTag';
+import { designTokens } from '@/design-system/theme';
+import { FilterOutlined } from '@ant-design/icons';
+import { debounce } from 'lodash-es';
 
 const { RangePicker } = DatePicker;
 
@@ -17,26 +22,74 @@ const LogList: React.FC = () => {
   // Pagination & Search state
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 10,
+    pageSize: 20,
   });
-  const [searchParams, setSearchParams] = useState<any>({});
+  const [searchParams, setSearchParams] = useState<Record<string, unknown>>({});
+  const [moreFilters, setMoreFilters] = useState<{ module?: string; action?: string }>({});
+  const [moreFilterInput, setMoreFilterInput] = useState<{ module?: string; action?: string }>({});
 
   // Fetch Logs
+  const mergedParams = useMemo(
+    () => ({ ...searchParams, ...moreFilters }),
+    [searchParams, moreFilters]
+  );
+
   const { data: logData, isLoading } = useQuery({
-    queryKey: ['logs', pagination, searchParams],
-    queryFn: () => getLogList({ page: pagination.current, size: pagination.pageSize, ...searchParams }),
+    queryKey: ['logs', pagination, mergedParams],
+    queryFn: () => getLogList({ page: pagination.current, size: pagination.pageSize, ...mergedParams }),
   });
 
-  const handleSearch = (values: any) => {
-    const params: any = { ...values };
-    if (values.timeRange) {
-      params.startTime = values.timeRange[0].format('YYYY-MM-DD HH:mm:ss');
-      params.endTime = values.timeRange[1].format('YYYY-MM-DD HH:mm:ss');
+  const normalizeParams = useCallback((values: Record<string, unknown>) => {
+    const params: Record<string, unknown> = { ...values };
+    if (values.timeRange && Array.isArray(values.timeRange) && values.timeRange[0] && values.timeRange[1]) {
+      params.startTime = (values.timeRange[0] as dayjs.Dayjs).format('YYYY-MM-DD HH:mm:ss');
+      params.endTime = (values.timeRange[1] as dayjs.Dayjs).format('YYYY-MM-DD HH:mm:ss');
       delete params.timeRange;
     }
-    setSearchParams(params);
-    setPagination({ ...pagination, current: 1 });
-  };
+    return params;
+  }, []);
+
+  const applySearchParams = useCallback((values: Record<string, unknown>) => {
+    setSearchParams(normalizeParams(values));
+    setPagination((prev) => ({ ...prev, current: 1 }));
+  }, [normalizeParams]);
+
+  const debouncedApply = useMemo(() => debounce(applySearchParams, 300), [applySearchParams]);
+
+  useEffect(() => () => debouncedApply.cancel(), [debouncedApply]);
+
+  const handleFilterChange = useCallback(
+    (changedValues: Record<string, unknown>, allValues: Record<string, unknown>) => {
+      const fullParams = { ...searchParams, ...moreFilters, ...allValues };
+      if ('username' in changedValues) {
+        debouncedApply(fullParams);
+      } else {
+        debouncedApply.cancel();
+        applySearchParams(fullParams);
+      }
+    },
+    [searchParams, moreFilters, applySearchParams, debouncedApply]
+  );
+
+  const debouncedSetMoreFilters = useMemo(
+    () =>
+      debounce((updates: { module?: string; action?: string }) => {
+        setMoreFilters((prev) => ({ ...prev, ...updates }));
+        setPagination((prev) => ({ ...prev, current: 1 }));
+      }, 300),
+    []
+  );
+
+  useEffect(() => () => debouncedSetMoreFilters.cancel(), [debouncedSetMoreFilters]);
+
+  const handleMoreFilterChange = useCallback(
+    (field: 'module' | 'action', value: string | undefined) => {
+      setMoreFilterInput((prev) => ({ ...prev, [field]: value }));
+      debouncedSetMoreFilters({ [field]: value });
+    },
+    [debouncedSetMoreFilters]
+  );
+
 
   const handleView = (record: Log) => {
     setCurrentLog(record);
@@ -79,11 +132,7 @@ const LogList: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       width: 100,
-      render: (status) => (
-        <Tag color={status === 'SUCCESS' ? 'success' : 'error'}>
-          {status === 'SUCCESS' ? '成功' : '失败'}
-        </Tag>
-      ),
+      render: (status) => <LogStatusTag status={status} />,
     },
     {
       title: '耗时(ms)',
@@ -114,47 +163,101 @@ const LogList: React.FC = () => {
   ];
 
   return (
-    <PageContainer title="操作日志">
-      <Form layout="inline" style={{ marginBottom: 16, rowGap: 16 }} onFinish={handleSearch}>
-        <Form.Item name="username" label="操作人">
-          <Input placeholder="请输入操作人" allowClear />
-        </Form.Item>
-        <Form.Item name="module" label="操作模块">
-          <Input placeholder="请输入操作模块" allowClear />
-        </Form.Item>
-        <Form.Item name="action" label="操作事件">
-          <Input placeholder="请输入操作事件" allowClear />
-        </Form.Item>
-        <Form.Item name="status" label="状态">
-          <Select placeholder="请选择" allowClear style={{ width: 120 }}>
-            <Select.Option value="SUCCESS">成功</Select.Option>
-            <Select.Option value="FAIL">失败</Select.Option>
-          </Select>
-        </Form.Item>
-        <Form.Item name="timeRange" label="时间范围">
-          <RangePicker 
-            showTime={{ defaultValue: [dayjs('00:00:00', 'HH:mm:ss'), dayjs('23:59:59', 'HH:mm:ss')] }}
-            disabledDate={disabledDate} 
-          />
-        </Form.Item>
-        <Form.Item>
-          <Button type="primary" htmlType="submit">查询</Button>
-        </Form.Item>
-      </Form>
-
-      <Table
-        columns={columns}
-        dataSource={logData?.records}
-        rowKey="id"
-        loading={isLoading}
-        pagination={{
-          current: pagination.current,
-          pageSize: pagination.pageSize,
-          total: logData?.total,
-          onChange: (page, size) => setPagination({ current: page, pageSize: size }),
-        }}
-        scroll={{ x: 1200 }}
-      />
+    <PageContainer>
+      <TablePageLayout
+        filterBar={
+          <Form
+            layout="inline"
+            style={{ marginBottom: 8, rowGap: 16 }}
+            onValuesChange={handleFilterChange}
+            initialValues={{
+              username: searchParams.username,
+              status: searchParams.status,
+              timeRange: searchParams.timeRange,
+            }}
+          >
+            <Form.Item name="username" label="操作人">
+              <Input placeholder="请输入操作人" allowClear />
+            </Form.Item>
+            <Form.Item name="status" label="状态">
+              <Select placeholder="请选择" allowClear style={{ width: 120 }}>
+                <Select.Option value="SUCCESS">成功</Select.Option>
+                <Select.Option value="FAIL">失败</Select.Option>
+              </Select>
+            </Form.Item>
+            <Form.Item name="timeRange" label="时间范围">
+              <RangePicker
+                showTime={{ defaultValue: [dayjs('00:00:00', 'HH:mm:ss'), dayjs('23:59:59', 'HH:mm:ss')] }}
+                disabledDate={disabledDate}
+              />
+            </Form.Item>
+            <Popover
+              content={
+                <div style={{ width: 280 }}>
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ marginBottom: 8, fontSize: 12, color: designTokens.colorTextTertiary }}>
+                      操作模块
+                    </div>
+                    <Input
+                      placeholder="请输入操作模块"
+                      allowClear
+                      value={moreFilterInput.module ?? moreFilters.module ?? ''}
+                      onChange={(e) => handleMoreFilterChange('module', e.target.value || undefined)}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ marginBottom: 8, fontSize: 12, color: designTokens.colorTextTertiary }}>
+                      操作事件
+                    </div>
+                    <Input
+                      placeholder="请输入操作事件"
+                      allowClear
+                      value={moreFilterInput.action ?? moreFilters.action ?? ''}
+                      onChange={(e) => handleMoreFilterChange('action', e.target.value || undefined)}
+                    />
+                  </div>
+                </div>
+              }
+              trigger="click"
+              placement="bottomLeft"
+            >
+              <Button icon={<FilterOutlined />}>更多筛选</Button>
+            </Popover>
+          </Form>
+        }
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Pagination
+              size="small"
+              current={pagination.current}
+              pageSize={pagination.pageSize}
+              total={logData?.total}
+              showSizeChanger
+              showQuickJumper
+              pageSizeOptions={[20, 50, 100]}
+              showTotal={(total) => `共 ${total} 条`}
+              onChange={(page, pageSize) =>
+                setPagination((prev) => ({
+                  current: pageSize && pageSize !== prev.pageSize ? 1 : page,
+                  pageSize: pageSize || prev.pageSize,
+                }))
+              }
+            />
+          </div>
+        }
+      >
+        <Table
+          columns={columns}
+          dataSource={logData?.records}
+          rowKey="id"
+          loading={isLoading}
+          size="small"
+          onRow={() => ({ style: { height: 40 } })}
+          scroll={{ x: 'max-content', y: 'calc(100vh - 360px)' }}
+          sticky
+          pagination={false}
+        />
+      </TablePageLayout>
 
       <Drawer
         title="日志详情"
@@ -170,9 +273,7 @@ const LogList: React.FC = () => {
             <Descriptions.Item label="操作事件">{currentLog.action}</Descriptions.Item>
             <Descriptions.Item label="IP地址">{currentLog.ip}</Descriptions.Item>
             <Descriptions.Item label="状态">
-              <Tag color={currentLog.status === 'SUCCESS' ? 'success' : 'error'}>
-                {currentLog.status === 'SUCCESS' ? '成功' : '失败'}
-              </Tag>
+              <LogStatusTag status={currentLog.status} />
             </Descriptions.Item>
             <Descriptions.Item label="耗时">{currentLog.costTime} ms</Descriptions.Item>
             <Descriptions.Item label="操作时间">{dayjs(currentLog.createTime).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
@@ -188,7 +289,7 @@ const LogList: React.FC = () => {
                   readOnly
                   value={currentLog.errorMsg}
                   autoSize={{ minRows: 2, maxRows: 10 }}
-                  style={{ color: 'red' }}
+                  style={{ color: designTokens.colorError }}
                 />
               </Descriptions.Item>
             )}
