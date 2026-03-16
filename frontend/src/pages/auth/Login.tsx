@@ -10,6 +10,7 @@ import {
   getTenantPermissions,
 } from '@/api/auth';
 import { PrimaryButton } from '@/design-system/components/Buttons';
+import { buildTenantMenus } from '@/config/tenantMenus';
 
 const { Title, Text } = Typography;
 
@@ -23,18 +24,21 @@ interface TenantItem {
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { setToken, setUserInfo, setPermissions, setCurrentTenant, setTenantList } = useUserStore();
+  const { setToken, setUserInfo, setPermissions, setMenus, setIsTenantAdmin, setCurrentTenant, setTenantList } = useUserStore();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<Step>('credentials');
   const [preToken, setPreToken] = useState<string>('');
   const [tenants, setTenants] = useState<TenantItem[]>([]);
   const [selectingId, setSelectingId] = useState<number | null>(null);
 
-  const initAfterLogin = async (tenantId: number, tenantName: string) => {
+  const initAfterLogin = async (tenantId: number, tenantName: string, isTenantAdmin: boolean) => {
     const userInfo = await getTenantUserInfo();
     setUserInfo(userInfo as any);
     const permissions = await getTenantPermissions();
-    setPermissions(Array.isArray(permissions) ? permissions : []);
+    const permList = Array.isArray(permissions) ? permissions : [];
+    setPermissions(permList);
+    setIsTenantAdmin(isTenantAdmin);
+    setMenus(buildTenantMenus(permList, isTenantAdmin));
     setCurrentTenant(tenantId, tenantName);
     message.success('登录成功');
     navigate('/dashboard');
@@ -54,7 +58,7 @@ const Login: React.FC = () => {
       } else {
         // 单租户：直接登录
         setToken(res.accessToken, res.refreshToken);
-        await initAfterLogin(res.tenantId, res.tenantName);
+        await initAfterLogin(res.tenantId, res.tenantName, !!res.isTenantAdmin);
       }
     } catch (err) {
       console.error(err);
@@ -68,7 +72,7 @@ const Login: React.FC = () => {
     try {
       const res = await tenantSelectTenant({ preToken, tenantId: tenant.tenantId });
       setToken(res.accessToken, res.refreshToken);
-      await initAfterLogin(res.tenantId, res.tenantName);
+      await initAfterLogin(res.tenantId, res.tenantName, !!res.isTenantAdmin);
     } catch (err) {
       console.error(err);
     } finally {

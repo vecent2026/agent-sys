@@ -102,6 +102,18 @@ public class InternalUserController {
     }
 
     /**
+     * 判断用户是否为某租户的管理员（is_admin=1）
+     */
+    @GetMapping("/users/{userId}/tenant-admin")
+    public boolean isTenantAdmin(@PathVariable Long userId, @RequestParam Long tenantId) {
+        return tenantUserMapper.selectCount(
+                new LambdaQueryWrapper<TenantUser>()
+                        .eq(TenantUser::getUserId, userId)
+                        .eq(TenantUser::getTenantId, tenantId)
+                        .eq(TenantUser::getIsAdmin, 1)) > 0;
+    }
+
+    /**
      * 查询用户所属租户 ID 列表
      */
     @GetMapping("/users/{userId}/tenants")

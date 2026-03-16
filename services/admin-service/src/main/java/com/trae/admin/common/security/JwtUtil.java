@@ -71,13 +71,14 @@ public class JwtUtil {
      * claims: isPlatform=false, userId, mobile, tenantId, tenantVersion, authorities
      */
     public String createTenantToken(Long userId, String mobile, Long tenantId,
-                                     int tenantVersion, List<String> authorities) {
+                                     int tenantVersion, boolean isTenantAdmin, List<String> authorities) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("isPlatform", false);
         claims.put("userId", userId);
         claims.put("mobile", mobile);
         claims.put("tenantId", tenantId);
         claims.put("tenantVersion", tenantVersion);
+        claims.put("isTenantAdmin", isTenantAdmin);
         claims.put("authorities", authorities);
         return buildToken(claims, mobile, expiration);
     }

@@ -17,6 +17,7 @@ interface UserState {
   userInfo: UserInfo | null;
   permissions: string[];
   menus: Permission[];
+  isTenantAdmin: boolean;
   // 租户上下文
   currentTenantId: number | null;
   currentTenantName: string | null;
@@ -26,6 +27,7 @@ interface UserState {
   setUserInfo: (userInfo: UserInfo) => void;
   setPermissions: (permissions: string[]) => void;
   setMenus: (menus: Permission[]) => void;
+  setIsTenantAdmin: (v: boolean) => void;
   setCurrentTenant: (tenantId: number, tenantName: string) => void;
   setTenantList: (tenants: TenantInfo[]) => void;
   logout: () => void;
@@ -39,6 +41,7 @@ export const useUserStore = create<UserState>((set) => ({
   userInfo: null,
   permissions: [],
   menus: [],
+  isTenantAdmin: false,
   currentTenantId: null,
   currentTenantName: null,
   tenantList: [],
@@ -50,6 +53,7 @@ export const useUserStore = create<UserState>((set) => ({
   setUserInfo: (userInfo) => set({ userInfo }),
   setPermissions: (permissions) => set({ permissions }),
   setMenus: (menus) => set({ menus }),
+  setIsTenantAdmin: (v) => set({ isTenantAdmin: v }),
   setCurrentTenant: (tenantId, tenantName) =>
     set({ currentTenantId: tenantId, currentTenantName: tenantName }),
   setTenantList: (tenants) => set({ tenantList: tenants }),
@@ -60,6 +64,7 @@ export const useUserStore = create<UserState>((set) => ({
       userInfo: null,
       permissions: [],
       menus: [],
+      isTenantAdmin: false,
       currentTenantId: null,
       currentTenantName: null,
       tenantList: [],

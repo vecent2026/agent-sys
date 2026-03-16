@@ -192,10 +192,13 @@ public class TenantAuthServiceImpl implements TenantAuthService {
             throw new BusinessException("租户不可用");
         }
 
-        // 重新获取权限
-        List<String> authorities = tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId);
+        // 重新获取权限（保留超管身份）
+        boolean isTenantAdmin = checkTenantAdmin(userId, tenantId);
+        List<String> authorities = isTenantAdmin
+                ? Collections.singletonList("TENANT_SUPER_ADMIN")
+                : tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId);
 
-        String newAccessToken = jwtUtil.createTenantToken(userId, mobile, tenantId, tenantVersion, authorities);
+        String newAccessToken = jwtUtil.createTenantToken(userId, mobile, tenantId, tenantVersion, isTenantAdmin, authorities);
 
         Map<String, Object> result = new HashMap<>();
         result.put("accessToken", newAccessToken);
@@ -284,10 +287,15 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         // 写入 Redis 版本
         redisUtil.set("tenant:version:" + tenantId, String.valueOf(tenantVersion), 30, TimeUnit.DAYS);
 
-        // 获取权限
-        List<String> authorities = tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId);
+        // 判断是否为租户超管
+        boolean isTenantAdmin = checkTenantAdmin(userId, tenantId);
 
-        String accessToken = jwtUtil.createTenantToken(userId, mobile, tenantId, tenantVersion, authorities);
+        // 超管直接获得所有权限，普通用户按角色分配
+        List<String> authorities = isTenantAdmin
+                ? Collections.singletonList("TENANT_SUPER_ADMIN")
+                : tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId);
+
+        String accessToken = jwtUtil.createTenantToken(userId, mobile, tenantId, tenantVersion, isTenantAdmin, authorities);
         String refreshToken = jwtUtil.createTenantRefreshToken(userId, mobile, tenantId, tenantVersion);
 
         Map<String, Object> result = new HashMap<>();
@@ -295,7 +303,24 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         result.put("refreshToken", refreshToken);
         result.put("tenantId", tenantId);
         result.put("tenantName", tenant.getTenantName());
+        result.put("isTenantAdmin", isTenantAdmin);
         return result;
+    }
+
+    /**
+     * 调用 user-service 判断用户是否为租户超管
+     */
+    private boolean checkTenantAdmin(Long userId, Long tenantId) {
+        try {
+            ResponseEntity<Boolean> resp = restTemplate.exchange(
+                    userServiceUrl + "/api/internal/users/" + userId + "/tenant-admin?tenantId=" + tenantId,
+                    HttpMethod.GET, null,
+                    Boolean.class);
+            return Boolean.TRUE.equals(resp.getBody());
+        } catch (Exception e) {
+            log.warn("checkTenantAdmin failed userId={} tenantId={}", userId, tenantId, e);
+            return false;
+        }
     }
 
     /**
