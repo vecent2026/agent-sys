@@ -258,14 +258,14 @@ public class AppUserServiceImpl extends ServiceImpl<AppUserMapper, AppUser> impl
         try {
             if ("empty".equals(op) || "为空".equals(op)) {
                 // 用户没有任何标签
-                wrapper.notExists("SELECT 1 FROM user_tag_relation r WHERE r.user_id = app_user.id");
+                wrapper.notExists("SELECT 1 FROM tenant_user_tag r WHERE r.user_id = app_user.id");
                 log.debug("Applied tag IS_EMPTY filter");
                 return;
             }
             
             if ("not_empty".equals(op) || "不为空".equals(op)) {
                 // 用户有至少一个标签
-                wrapper.exists("SELECT 1 FROM user_tag_relation r WHERE r.user_id = app_user.id");
+                wrapper.exists("SELECT 1 FROM tenant_user_tag r WHERE r.user_id = app_user.id");
                 log.debug("Applied tag IS_NOT_EMPTY filter");
                 return;
             }
@@ -281,14 +281,14 @@ public class AppUserServiceImpl extends ServiceImpl<AppUserMapper, AppUser> impl
             
             if ("contains".equals(op) || "包含".equals(op)) {
                 // 用户拥有任一指定标签 - 使用EXISTS子查询避免重复行
-                String existsSql = "SELECT 1 FROM user_tag_relation r " +
+                String existsSql = "SELECT 1 FROM tenant_user_tag r " +
                                   "WHERE r.user_id = app_user.id AND r.tag_id IN (" + tagIdStr + ")";
                 wrapper.exists(existsSql);
                 log.debug("Applied tag CONTAINS filter for {} tags", tagIds.size());
                 
             } else if ("not_contains".equals(op) || "不包含".equals(op)) {
                 // 用户不拥有任一指定标签
-                String notExistsSql = "SELECT 1 FROM user_tag_relation r " +
+                String notExistsSql = "SELECT 1 FROM tenant_user_tag r " +
                                      "WHERE r.user_id = app_user.id AND r.tag_id IN (" + tagIdStr + ")";
                 wrapper.notExists(notExistsSql);
                 log.debug("Applied tag NOT_CONTAINS filter for {} tags", tagIds.size());

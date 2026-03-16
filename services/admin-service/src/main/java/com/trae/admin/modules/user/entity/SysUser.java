@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-@TableName("sys_user")
+@TableName("platform_user")
 public class SysUser extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
@@ -64,4 +64,14 @@ public class SysUser extends BaseEntity {
      * 最后登录IP
      */
     private String lastLoginIp;
+
+    /**
+     * Token 版本号，改密/禁用时+1 使旧 token 立即失效
+     */
+    private Integer tokenVersion;
+
+    /**
+     * 是否超管 0=否 1=是
+     */
+    private Integer isSuper;
 }

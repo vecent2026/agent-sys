@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Layout, Menu, theme, Dropdown, Avatar, Breadcrumb } from 'antd';
+import { Layout, Menu, theme, Dropdown, Avatar, Breadcrumb, Tag } from 'antd';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   UserOutlined,
@@ -7,6 +7,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   DashboardOutlined,
+  SwapOutlined,
 } from '@ant-design/icons';
 import { useUserStore } from '@/store/userStore';
 import type { Permission } from '@/types/permission';
@@ -29,7 +30,7 @@ const BasicLayout: React.FC = () => {
   } = theme.useToken();
   const navigate = useNavigate();
   const location = useLocation();
-  const { userInfo, logout, menus } = useUserStore();
+  const { userInfo, logout, menus, currentTenantName, tenantList, setToken, setCurrentTenant } = useUserStore();
 
   // 用户管理列表页：内容填满，不留白
   const isUserListPage = /^\/app-user\/user\/?$/.test(location.pathname);
@@ -39,7 +40,34 @@ const BasicLayout: React.FC = () => {
     navigate('/login');
   };
 
-  const userMenu = [
+  const handleSwitchTenant = async (tenantId: number, tenantName: string) => {
+    try {
+      const { tenantSwitchTenant } = await import('@/api/auth');
+      const result = await tenantSwitchTenant({ tenantId });
+      setToken(result.accessToken, result.refreshToken);
+      setCurrentTenant(tenantId, tenantName);
+      window.location.reload();
+    } catch (err) {
+      // error shown by request interceptor
+    }
+  };
+
+  const switchTenantItems: MenuProps['items'] = tenantList.length > 1
+    ? tenantList.map((t) => ({
+        key: `switch-${t.tenantId}`,
+        label: t.tenantName,
+        disabled: t.tenantId === useUserStore.getState().currentTenantId,
+        onClick: () => handleSwitchTenant(t.tenantId, t.tenantName),
+      }))
+    : [];
+
+  const userMenu: MenuProps['items'] = [
+    ...(tenantList.length > 1 ? [{
+      key: 'switch-tenant',
+      label: '切换租户',
+      icon: <SwapOutlined />,
+      children: switchTenantItems,
+    }] : []),
     {
       key: 'logout',
       label: '退出登录',
@@ -265,6 +293,9 @@ const BasicLayout: React.FC = () => {
             padding: '0 16px',
           }}>
           {/* 右侧：用户信息 - 点击头像/名称才弹出菜单，非悬停 */}
+            {currentTenantName && (
+              <Tag color="blue" style={{ marginRight: 8 }}>{currentTenantName}</Tag>
+            )}
             <Dropdown menu={{ items: userMenu }} trigger={['click']}>
               <div style={{ 
                 cursor: 'pointer', 

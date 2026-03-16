@@ -13,6 +13,8 @@ public class AppUser {
     private String nickname;
     private String avatar;
     private String mobile;
+    /** 密码（BCrypt 加密存储，用于租户端登录） */
+    private String password;
     private String email;
     private Integer gender;
     private LocalDate birthday;

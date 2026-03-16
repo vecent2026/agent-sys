@@ -1,23 +1,27 @@
 package com.trae.admin.modules.auth.service.impl;
 
-import com.trae.admin.modules.auth.dto.LoginBody;
-import com.trae.admin.modules.auth.service.AuthService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.trae.admin.common.security.JwtUtil;
 import com.trae.admin.common.utils.RedisUtil;
+import com.trae.admin.modules.auth.dto.LoginBody;
+import com.trae.admin.modules.rbac.mapper.SysPermissionMapper;
+import com.trae.admin.modules.rbac.service.PermissionService;
+import com.trae.admin.modules.user.entity.SysUser;
 import com.trae.admin.modules.user.mapper.SysUserMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -26,70 +30,75 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class AuthServiceImplTest {
 
-    @Mock
-    private AuthenticationManager authenticationManager;
-    @Mock
-    private JwtUtil jwtUtil;
-    @Mock
-    private RedisUtil redisUtil;
-    @Mock
-    private SysUserMapper sysUserMapper;
-    
+    @Mock AuthenticationManager authenticationManager;
+    @Mock JwtUtil jwtUtil;
+    @Mock RedisUtil redisUtil;
+    @Mock SysUserMapper sysUserMapper;
+    @Mock SysPermissionMapper sysPermissionMapper;
+    @Mock PermissionService permissionService;
+    @Mock KafkaTemplate<String, Object> kafkaTemplate;
+    @Mock com.trae.admin.modules.log.repository.SysLogRepository sysLogRepository;
+
     @InjectMocks
     private AuthServiceImpl authService;
 
     @Test
-    void login_Success() {
-        // Arrange
-        LoginBody loginBody = new LoginBody();
-        loginBody.setUsername("admin");
-        loginBody.setPassword("123456");
-        
-        Authentication authentication = mock(Authentication.class);
-        when(authentication.getName()).thenReturn("admin");
-        when(authentication.getAuthorities()).thenReturn((Collection) List.of(new SimpleGrantedAuthority("admin")));
-        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(authentication);
-        
-        when(jwtUtil.createAccessToken(anyString(), anyLong(), any(Collection.class))).thenReturn("access_token");
-        when(jwtUtil.createRefreshToken(anyString(), anyLong())).thenReturn("refresh_token");
-        
-        // Act
-        Map<String, String> result = authService.login(loginBody);
-        
-        // Assert
+    void login_success_returnsTokens() {
+        LoginBody body = new LoginBody();
+        body.setUsername("admin");
+        body.setPassword("123456");
+
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("admin");
+        when(auth.getAuthorities()).thenReturn((Collection) List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(auth);
+        when(jwtUtil.createAccessToken(anyString(), any(), any(), any())).thenReturn("access_token");
+        when(jwtUtil.createRefreshToken(anyString(), any())).thenReturn("refresh_token");
+
+        SysUser user = new SysUser();
+        user.setId(1L);
+        user.setUsername("admin");
+        when(sysUserMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(user);
+
+        Map<String, String> result = authService.login(body);
+
         assertNotNull(result);
         assertEquals("access_token", result.get("accessToken"));
         assertEquals("refresh_token", result.get("refreshToken"));
-        verify(redisUtil).set(eq("auth:refresh:admin"), eq("refresh_token"), anyLong(), any());
+        verify(redisUtil).set(eq("auth:refresh:admin"), eq("refresh_token"), eq(7L), eq(TimeUnit.DAYS));
     }
 
     @Test
-    void login_WrongPassword() {
-        // Arrange
-        LoginBody loginBody = new LoginBody();
-        loginBody.setUsername("admin");
-        loginBody.setPassword("wrong_password");
-        
-        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-                .thenThrow(new org.springframework.security.authentication.BadCredentialsException("Bad credentials"));
-        
-        // Act & Assert
-        assertThrows(org.springframework.security.authentication.BadCredentialsException.class,
-                () -> authService.login(loginBody));
+    void login_wrongPassword_throwsException() {
+        LoginBody body = new LoginBody();
+        body.setUsername("admin");
+        body.setPassword("wrong");
+        when(authenticationManager.authenticate(any()))
+                .thenThrow(new BadCredentialsException("Bad credentials"));
+        assertThrows(BadCredentialsException.class, () -> authService.login(body));
     }
 
     @Test
-    void logout_Success() {
-        // Arrange
-        String token = "Bearer access_token";
-        when(jwtUtil.getUsernameFromToken(eq("access_token"))).thenReturn("admin");
-        when(jwtUtil.getExpirationFromToken(eq("access_token"))).thenReturn(new java.util.Date(System.currentTimeMillis() + 3600000));
-        
-        // Act
-        authService.logout(token);
-        
-        // Assert
-        verify(redisUtil).delete(eq("auth:refresh:admin"));
-        verify(redisUtil).set(eq("blacklist:access_token"), eq("1"), anyLong(), any());
+    void logout_invalidatesToken() {
+        when(jwtUtil.getUsernameFromToken("mytoken")).thenReturn("admin");
+        when(jwtUtil.getExpirationFromToken("mytoken"))
+                .thenReturn(new Date(System.currentTimeMillis() + 3_600_000));
+
+        authService.logout("Bearer mytoken");
+
+        verify(redisUtil).delete("auth:refresh:admin");
+        verify(redisUtil).set(eq("blacklist:mytoken"), eq("1"), anyLong(), eq(TimeUnit.MILLISECONDS));
+    }
+
+    @Test
+    void logout_expiredToken_skipsBlacklist() {
+        when(jwtUtil.getUsernameFromToken("oldtoken")).thenReturn("admin");
+        when(jwtUtil.getExpirationFromToken("oldtoken"))
+                .thenReturn(new Date(System.currentTimeMillis() - 1_000));
+
+        authService.logout("Bearer oldtoken");
+
+        verify(redisUtil).delete("auth:refresh:admin");
+        verify(redisUtil, never()).set(startsWith("blacklist:"), any(), anyLong(), any());
     }
 }

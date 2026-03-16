@@ -107,7 +107,7 @@ instance.interceptors.response.use(
 
         // Call refresh API directly using axios to avoid interceptor loop
         const { data } = await axios.post<Result<{ accessToken: string; refreshToken: string }>>(
-          `/api/auth/refresh?refreshToken=${encodeURIComponent(refreshToken)}`
+          `/api/tenant/auth/refresh?refreshToken=${encodeURIComponent(refreshToken)}`
         );
 
         if (data.code === 200) {
