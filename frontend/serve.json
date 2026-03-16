@@ -1,7 +1,6 @@
 {
+  "cleanUrls": false,
   "rewrites": [
-    { "source": "/platform.html", "destination": "/platform.html" },
-    { "source": "/platform", "destination": "/platform.html" },
     { "source": "/platform/**", "destination": "/platform.html" },
     { "source": "/**", "destination": "/index.html" }
   ]

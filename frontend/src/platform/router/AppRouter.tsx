@@ -42,7 +42,7 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
 );
 
 export const PlatformRouter: React.FC = () => (
-  <BrowserRouter>
+  <BrowserRouter basename="/platform">
     <Routes />
   </BrowserRouter>
 );
