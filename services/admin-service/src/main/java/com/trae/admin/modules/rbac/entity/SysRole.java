@@ -12,7 +12,7 @@ import lombok.EqualsAndHashCode;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-@TableName("sys_role")
+@TableName("tenant_role")
 public class SysRole extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
@@ -37,4 +37,9 @@ public class SysRole extends BaseEntity {
      * 描述
      */
     private String description;
+
+    /**
+     * 所属租户 ID（由 TenantLineInnerInterceptor 自动注入）
+     */
+    private Long tenantId;
 }

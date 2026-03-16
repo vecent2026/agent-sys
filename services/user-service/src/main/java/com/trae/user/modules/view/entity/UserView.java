@@ -13,6 +13,8 @@ public class UserView {
     private String id;
     private String name;
     private Long userId;
+    /** 所属租户ID（由 TenantLineInnerInterceptor 自动过滤） */
+    private Long tenantId;
     private String filters; // JSON 字符串
     private String hiddenFields; // JSON 字符串
     private String viewConfig; // JSON 字符串

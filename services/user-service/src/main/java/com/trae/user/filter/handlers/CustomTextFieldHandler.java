@@ -170,7 +170,7 @@ public class CustomTextFieldHandler extends CustomFieldHandlerBase {
      * 前缀匹配筛选
      */
     private void applyStartsWithFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, String value) {
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND fv.field_value LIKE '" + escapeSqlValue(value) + "%'";
         wrapper.exists(existsSql);
@@ -181,7 +181,7 @@ public class CustomTextFieldHandler extends CustomFieldHandlerBase {
      * 后缀匹配筛选
      */
     private void applyEndsWithFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, String value) {
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND fv.field_value LIKE '%" + escapeSqlValue(value) + "'";
         wrapper.exists(existsSql);
@@ -193,7 +193,7 @@ public class CustomTextFieldHandler extends CustomFieldHandlerBase {
      */
     private void applyRegexFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, String pattern) {
         // 使用MySQL的REGEXP函数
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND fv.field_value REGEXP '" + escapeSqlValue(pattern) + "'";
         wrapper.exists(existsSql);

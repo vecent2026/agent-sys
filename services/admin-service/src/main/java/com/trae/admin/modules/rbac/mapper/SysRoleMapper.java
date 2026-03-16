@@ -16,9 +16,9 @@ import java.util.Map;
 public interface SysRoleMapper extends BaseMapper<SysRole> {
 
     @Select("SELECT r.id, r.role_name, r.role_key, r.description, r.create_time, " +
-            "COUNT(ur.user_id) as user_count " +
-            "FROM sys_role r " +
-            "LEFT JOIN sys_user_role ur ON r.id = ur.role_id " +
+            "COUNT(tur.user_id) as user_count " +
+            "FROM tenant_role r " +
+            "LEFT JOIN tenant_user_role tur ON r.id = tur.role_id " +
             "GROUP BY r.id")
     List<Map<String, Object>> selectRoleUserCount();
 }

@@ -161,7 +161,7 @@ public class CustomCheckboxFieldHandler extends CustomFieldHandlerBase {
         
         // 构建OR条件：任一选项匹配即可
         StringBuilder conditionBuilder = new StringBuilder();
-        conditionBuilder.append("SELECT 1 FROM app_user_field_value fv ")
+        conditionBuilder.append("SELECT 1 FROM tenant_field_value fv ")
                        .append("WHERE fv.user_id = app_user.id AND fv.field_id = ").append(fieldId)
                        .append(" AND (");
         
@@ -191,7 +191,7 @@ public class CustomCheckboxFieldHandler extends CustomFieldHandlerBase {
         
         // 构建AND条件：所有选项都不匹配
         StringBuilder conditionBuilder = new StringBuilder();
-        conditionBuilder.append("SELECT 1 FROM app_user_field_value fv ")
+        conditionBuilder.append("SELECT 1 FROM tenant_field_value fv ")
                        .append("WHERE fv.user_id = app_user.id AND fv.field_id = ").append(fieldId)
                        .append(" AND (");
         
@@ -221,7 +221,7 @@ public class CustomCheckboxFieldHandler extends CustomFieldHandlerBase {
         
         // 构建AND条件：所有选项都必须匹配
         StringBuilder conditionBuilder = new StringBuilder();
-        conditionBuilder.append("SELECT 1 FROM app_user_field_value fv ")
+        conditionBuilder.append("SELECT 1 FROM tenant_field_value fv ")
                        .append("WHERE fv.user_id = app_user.id AND fv.field_id = ").append(fieldId)
                        .append(" AND ");
         

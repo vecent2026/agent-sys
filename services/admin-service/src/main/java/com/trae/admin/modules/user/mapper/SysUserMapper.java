@@ -9,18 +9,18 @@ import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
 /**
- * 用户Mapper接口
+ * 平台用户Mapper接口（platform_user 表）
  */
 @Mapper
 public interface SysUserMapper extends BaseMapper<SysUser> {
 
-    @Select("SELECT r.role_name FROM sys_role r " +
-            "INNER JOIN sys_user_role ur ON r.id = ur.role_id " +
+    @Select("SELECT r.role_name FROM platform_role r " +
+            "INNER JOIN platform_user_role ur ON r.id = ur.role_id " +
             "WHERE ur.user_id = #{userId}")
     List<String> selectRoleNamesByUserId(@Param("userId") Long userId);
-    
-    @Select("SELECT r.id FROM sys_role r " +
-            "INNER JOIN sys_user_role ur ON r.id = ur.role_id " +
+
+    @Select("SELECT r.id FROM platform_role r " +
+            "INNER JOIN platform_user_role ur ON r.id = ur.role_id " +
             "WHERE ur.user_id = #{userId}")
     List<Long> selectRoleIdsByUserId(@Param("userId") Long userId);
 }

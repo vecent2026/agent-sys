@@ -190,7 +190,7 @@ public class CustomRadioFieldHandler extends CustomFieldHandlerBase {
      * TODO: 实际实现中应该从字段配置中读取选项列表
      */
     public List<OptionInfo> getFieldOptions(Long fieldId) {
-        // 这里应该查询 app_user_field 表获取字段配置
+        // 这里应该查询 tenant_field_def 表获取字段配置
         // 解析配置中的选项列表
         // 返回选项信息列表
         

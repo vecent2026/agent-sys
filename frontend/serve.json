@@ -1,5 +1,8 @@
 {
   "rewrites": [
-    { "source": "**", "destination": "/index.html" }
+    { "source": "/platform.html", "destination": "/platform.html" },
+    { "source": "/platform", "destination": "/platform.html" },
+    { "source": "/platform/**", "destination": "/platform.html" },
+    { "source": "/**", "destination": "/index.html" }
   ]
 }

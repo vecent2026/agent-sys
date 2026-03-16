@@ -13,4 +13,4 @@ RUN npm install -g serve
 COPY --from=builder /app/dist /app
 COPY serve.json /app/serve.json
 EXPOSE 80
-CMD ["serve", "-s", "/app", "-l", "80"]
+CMD ["serve", "/app", "-l", "80", "--config", "/app/serve.json"]

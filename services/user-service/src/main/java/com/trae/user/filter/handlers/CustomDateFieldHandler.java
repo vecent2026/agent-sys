@@ -155,7 +155,7 @@ public class CustomDateFieldHandler extends CustomFieldHandlerBase {
      */
     private void applyAfterFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, LocalDateTime dateTime) {
         String dateStr = formatDateTimeForSql(dateTime);
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND STR_TO_DATE(fv.field_value, '%Y-%m-%d %H:%i:%s') > '" + dateStr + "'";
         wrapper.exists(existsSql);
@@ -167,7 +167,7 @@ public class CustomDateFieldHandler extends CustomFieldHandlerBase {
      */
     private void applyBeforeFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, LocalDateTime dateTime) {
         String dateStr = formatDateTimeForSql(dateTime);
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND STR_TO_DATE(fv.field_value, '%Y-%m-%d %H:%i:%s') < '" + dateStr + "'";
         wrapper.exists(existsSql);
@@ -179,7 +179,7 @@ public class CustomDateFieldHandler extends CustomFieldHandlerBase {
      */
     private void applyBetweenFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, DateRange range) {
         StringBuilder sqlBuilder = new StringBuilder();
-        sqlBuilder.append("SELECT 1 FROM app_user_field_value fv ")
+        sqlBuilder.append("SELECT 1 FROM tenant_field_value fv ")
                  .append("WHERE fv.user_id = app_user.id AND fv.field_id = ").append(fieldId);
 
         if (range.getStart() != null && range.getEnd() != null) {

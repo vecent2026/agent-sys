@@ -10,7 +10,7 @@ import java.io.Serializable;
  * 用户角色关联实体类
  */
 @Data
-@TableName("sys_user_role")
+@TableName("platform_user_role")
 public class SysUserRole implements Serializable {
 
     private static final long serialVersionUID = 1L;
