@@ -232,46 +232,42 @@ public UserDetails loadUserByUsername(String mobile) {
 
 ### 3.2 平台用户权限加载
 
-> 平台用户走独立的权限体系：`platform_user_role` → `platform_role` → `platform_role_permission` → `platform_permission`（scope=platform）。
-> 超级管理员（`is_super=1`）不走角色查询，直接授予 `ROLE_SUPER_ADMIN`。
+> 平台用户权限通过 `platform_user_role` → `platform_role_permission` → `platform_permission` 链路加载。
+> 若用户持有 `is_super=1` 的角色，则直接查询全量权限，跳过角色关联链路（见 §6）。
+
+权限加载发生在**登录时**（`PlatformAuthServiceImpl.login()`），权限列表写入 JWT `authorities` claim，后续请求直接从 JWT 读取，无需再查数据库。
 
 ```java
-// PlatformUserDetailsServiceImpl.java
-@Override
-public UserDetails loadUserByUsername(String username) {
-    PlatformUser user = platformUserMapper.selectByUsername(username);
-
-    List<GrantedAuthority> authorities = new ArrayList<>();
-
-    if (user.getIsSuper()) {
-        // 超管：赋予特殊角色，跳过常规权限检查
-        authorities.add(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
-    } else {
-        // 普通平台用户：查询角色-权限链路
-        List<String> permKeys = platformUserRoleMapper.selectPermKeysByUserId(user.getId());
-        permKeys.stream()
-            .map(SimpleGrantedAuthority::new)
-            .forEach(authorities::add);
-    }
-
-    return new PlatformUserDetails(user, authorities);
-}
+// PlatformAuthServiceImpl.login() — 核心权限加载逻辑
+boolean isSuper = platformUserRoleMapper.existsSuperRole(user.getId()); // 查用户是否持有 is_super=1 的角色
+List<SysPermission> perms = isSuper
+    ? permissionMapper.selectAllPermissions()               // 超管：全量权限
+    : permissionMapper.selectPermissionsByUserId(user.getId()); // 普通用户：角色链路
+List<String> authorities = perms.stream()
+    .filter(p -> StringUtils.hasText(p.getPermissionKey()))
+    .map(SysPermission::getPermissionKey)
+    .collect(Collectors.toList());
 ```
 
 对应 Mapper SQL：
 
-```xml
-<!-- PlatformUserRoleMapper.xml -->
-<select id="selectPermKeysByUserId" resultType="string">
-    SELECT DISTINCT p.permission_key
-    FROM platform_user_role pur
-    JOIN platform_role_permission prp ON prp.role_id = pur.role_id
-    JOIN platform_permission p ON p.id = prp.permission_id
-    WHERE pur.user_id = #{userId}
-      AND p.is_deleted = 0
-      AND p.scope = 'platform'
-      AND p.permission_key IS NOT NULL
-</select>
+```sql
+-- 查询普通平台用户权限（角色链路）
+SELECT DISTINCT p.permission_key
+FROM platform_user_role pur
+JOIN platform_role_permission prp ON prp.role_id = pur.role_id
+JOIN platform_permission p ON p.id = prp.permission_id
+WHERE pur.user_id = #{userId}
+  AND p.is_deleted = 0
+  AND p.permission_key IS NOT NULL;
+
+-- 查询用户是否持有超管角色
+SELECT COUNT(*) > 0
+FROM platform_user_role pur
+JOIN platform_role r ON r.id = pur.role_id
+WHERE pur.user_id = #{userId}
+  AND r.is_super = 1
+  AND r.is_deleted = 0;
 ```
 
 ### 3.3 权限缓存方案（Redis）
@@ -462,37 +458,61 @@ public void createTenantWithAdmin(CreateTenantDto dto) {
 
 ## 6. 超级管理员设计
 
-平台超管（`is_super = 1`）不走 Spring Security 权限校验，JWT 中写入特殊角色 `ROLE_SUPER_ADMIN`：
+### 6.1 设计原则
 
-```java
-// 生成 JWT 时
-if (platformUser.getIsSuper()) {
-    authorities.add("ROLE_SUPER_ADMIN");
-}
+超管身份由**角色**决定，而非用户字段：`platform_role.is_super=1` 标识超管角色，任何平台用户只要被分配了此角色，即获得超管权限。这样超管权限可以复用给多个账号，而不必在用户表上打标。
 
-// SecurityConfig 中
-http.authorizeRequests()
-    // 超管直接放行所有平台接口
-    .antMatchers("/api/platform/**").hasAnyRole("SUPER_ADMIN", "PLATFORM_ADMIN")
-    .antMatchers("/api/tenant/**").authenticated()
-    ...
+| 概念 | 说明 |
+|------|------|
+| **内置超管角色** | `platform_role(is_super=1, is_builtin=1, role_key='super_admin')`，系统初始化时创建，不可删除、不可修改 |
+| **内置 admin 账号** | `platform_user(is_builtin=1, username='admin')`，默认密码 `123456`，不可删除、不可禁用、不可修改角色分配 |
+| **超管身份判断** | 登录时查询用户持有的角色，若任意角色 `is_super=1`，则 JWT 中 `isSuper=true` |
+
+### 6.2 登录权限加载逻辑
+
+```
+登录时：
+  1. 查询用户持有的所有角色
+  2. 若任意角色 is_super=1：
+       → 查询全部 platform_permission（不限 scope）
+       → JWT 中 isSuper=true，authorities=全量权限 key
+  3. 否则：
+       → 走 platform_user_role → platform_role_permission → platform_permission 链路
+       → JWT 中 isSuper=false，authorities=角色授权的权限 key
 ```
 
-**接口注解示例**：
-
 ```java
-// 超管不需要具体权限，其他平台用户需要
-@PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:tenant:add')")
-public Result<Void> createTenant(...) { ... }
-
-// 租户端接口只需认证通过 + 正确的 tenantId
-@PreAuthorize("hasAuthority('tenant:role:edit')")
-public Result<Void> updateRole(...) { ... }
-
-// 平台角色管理接口
-@PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:role:add')")
-public Result<Void> createPlatformRole(...) { ... }
+// PlatformAuthServiceImpl.login()
+boolean isSuper = platformUserRoleMapper.hasAnyRole(user.getId(), roleKey -> roleMapper.isSuper(roleKey));
+List<SysPermission> perms = isSuper
+    ? permissionMapper.selectAllPermissions()
+    : permissionMapper.selectPermissionsByUserId(user.getId());
+List<String> authorities = perms.stream()
+    .filter(p -> StringUtils.hasText(p.getPermissionKey()))
+    .map(SysPermission::getPermissionKey)
+    .collect(Collectors.toList());
+// 生成 JWT，isSuper 写入 claim
+String token = jwtUtil.createPlatformToken(user.getId(), user.getUsername(), isSuper, tokenVersion, authorities);
 ```
+
+### 6.3 前端权限展示规则
+
+| 场景 | 行为 |
+|------|------|
+| `isSuper=true` | 跳过所有 UI 权限检查，所有菜单/按钮均可见 |
+| 超管角色的权限树 | 所有节点显示为已勾选（仅展示效果，不写入 `platform_role_permission`） |
+| 非超管角色 | 仅展示已授权节点，操作按钮按 `authorities` 校验 |
+
+### 6.4 内置账号/角色保护规则
+
+后端在以下操作的 Service 层做保护：
+
+| 保护对象 | 禁止操作 |
+|---------|---------|
+| `platform_role.is_builtin=1` | 删除、修改角色名/角色标识/is_super/is_builtin |
+| `platform_user.is_builtin=1` | 删除、禁用、修改角色分配 |
+
+> 内置账号允许修改密码、昵称等非关键字段，不影响安全性。
 
 ---
 
