@@ -50,7 +50,9 @@ VALUES (1, 'tiannan', '天南大陆', 1, 0, 'system');
 
 ### 1.2 平台用户表 `platform_user`
 
-> 原 `sys_user` 重命名。平台管理员与租户用户（`app_user`）完全隔离，互不干扰，登录入口不同。
+> 平台管理员与租户用户（`app_user`）完全隔离，互不干扰，登录入口不同。
+> 超级管理员身份由所属角色（`platform_role.is_super=1`）决定，`platform_user` 本身不存储超管标志。
+> `is_builtin=1` 表示内置账号（系统初始化时创建），不可删除、不可禁用、不可修改角色。
 
 ```sql
 CREATE TABLE `platform_user` (
@@ -60,7 +62,7 @@ CREATE TABLE `platform_user` (
   `nickname`        VARCHAR(50)  NOT NULL               COMMENT '昵称',
   `mobile`          VARCHAR(20)  DEFAULT NULL           COMMENT '手机号',
   `email`           VARCHAR(50)  DEFAULT NULL           COMMENT '邮箱',
-  `is_super`        TINYINT(1)   NOT NULL DEFAULT 0     COMMENT '是否超级管理员: 1是 0否（超管不受角色权限限制）',
+  `is_builtin`      TINYINT(1)   NOT NULL DEFAULT 0     COMMENT '是否内置账号: 1=内置（不可删除/禁用/修改角色）',
   `status`          TINYINT(1)   NOT NULL DEFAULT 1     COMMENT '状态: 1启用 0禁用',
   `token_version`   INT(11)      NOT NULL DEFAULT 0     COMMENT 'Token版本号，修改密码或禁用时+1，令旧token立即失效',
   `last_login_time` DATETIME     DEFAULT NULL,
@@ -73,31 +75,23 @@ CREATE TABLE `platform_user` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='平台管理员用户表';
-
--- 迁移：将 sys_user 数据复制过来
-INSERT INTO `platform_user`
-  (`id`,`username`,`password`,`nickname`,`mobile`,`email`,`is_super`,
-   `status`,`last_login_time`,`last_login_ip`,`create_time`,`update_time`,`create_by`,`update_by`,`is_deleted`)
-SELECT
-  `id`,`username`,`password`,`nickname`,`mobile`,`email`, 0,
-  `status`,`last_login_time`,`last_login_ip`,`create_time`,`update_time`,`create_by`,`update_by`,`is_deleted`
-FROM `sys_user`;
-
--- 将初始管理员设为超管
-UPDATE `platform_user` SET `is_super` = 1 WHERE `id` = 1;
 ```
 
 ---
 
-### 1.3 平台角色表 `platform_role`（新增）
+### 1.3 平台角色表 `platform_role`
 
-> 平台端自身也需要角色体系（如"运营管理员"只能查看日志，"系统管理员"可管理租户），而不是全部依赖 `is_super`。
+> 平台端角色体系，用于管理平台管理员的权限范围（如"运营管理员"只能查看日志）。
+> `is_super=1` 标识超级管理员角色：持有此角色的平台用户拥有全部平台权限，后端跳过权限校验，前端展示所有权限节点为已勾选（仅展示效果）。
+> `is_builtin=1` 标识内置角色：不可删除、不可修改权限配置（`is_super=1` 隐含 `is_builtin=1`）。
 
 ```sql
 CREATE TABLE `platform_role` (
   `id`          BIGINT(20)   NOT NULL AUTO_INCREMENT COMMENT '主键',
   `role_name`   VARCHAR(50)  NOT NULL               COMMENT '角色名称',
-  `role_key`    VARCHAR(50)  NOT NULL               COMMENT '角色标识（唯一，如 platform_admin）',
+  `role_key`    VARCHAR(50)  NOT NULL               COMMENT '角色标识（唯一，如 super_admin）',
+  `is_builtin`  TINYINT(1)   NOT NULL DEFAULT 0     COMMENT '是否内置角色: 1=内置（不可删除/修改）',
+  `is_super`    TINYINT(1)   NOT NULL DEFAULT 0     COMMENT '是否超管角色: 1=持有此角色的用户拥有全部权限',
   `description` VARCHAR(200) DEFAULT NULL           COMMENT '描述',
   `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -107,14 +101,6 @@ CREATE TABLE `platform_role` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_role_key` (`role_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='平台角色表';
-
--- 初始化：迁移现有 sys_role 中的平台级角色
-INSERT INTO `platform_role` (`id`,`role_name`,`role_key`,`description`,`create_time`,`update_time`,`create_by`,`update_by`,`is_deleted`)
-SELECT `id`,`role_name`,`role_key`,`description`,`create_time`,`update_time`,`create_by`,`update_by`,`is_deleted`
-FROM `sys_role`
-WHERE `is_deleted` = 0;
--- 注意：sys_role 改造后所有角色归入 tenant_role，此处仅将需要保留为平台级的角色复制
--- 实际上若现有系统中所有角色都是业务角色（属于租户），则 platform_role 初始为空，手动创建
 ```
 
 ---
@@ -153,9 +139,7 @@ CREATE TABLE `platform_role_permission` (
   KEY `idx_role_id` (`role_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='平台角色-权限关联表';
 
--- 迁移：将现有 sys_role_permission 复制过来（对应平台角色）
-INSERT INTO `platform_role_permission` (`role_id`, `permission_id`)
-SELECT `role_id`, `permission_id` FROM `sys_role_permission`;
+-- 初始化数据见 §1.9
 ```
 
 ---
@@ -176,14 +160,7 @@ CREATE TABLE `tenant_role_permission` (
   KEY `idx_tenant_role` (`tenant_id`, `role_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户角色-权限关联表';
 
--- 迁移：将现有 sys_role_permission 中属于租户角色的关联迁移过来
--- （sys_role 改造后 tenant_id=1 的角色即为天南大陆的租户角色）
-INSERT INTO `tenant_role_permission` (`tenant_id`, `role_id`, `permission_id`)
-SELECT 1, srp.`role_id`, srp.`permission_id`
-FROM `sys_role_permission` srp
-JOIN `sys_role` r ON r.`id` = srp.`role_id`
-WHERE r.`is_deleted` = 0;
--- 注意：sys_role 中所有角色此时都视为天南大陆租户的角色，迁移完成后 sys_role_permission 废弃
+-- 初始化数据见 §1.9
 ```
 
 ---
@@ -230,12 +207,44 @@ CREATE TABLE `tenant_user_role` (
   KEY `idx_tenant_role` (`tenant_id`, `role_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户-租户-角色三元关联表';
 
--- 迁移：sys_user_role 数据全部归入天南大陆（tenant_id=1）
-INSERT INTO `tenant_user_role` (`user_id`, `tenant_id`, `role_id`)
-SELECT `user_id`, 1, `role_id` FROM `sys_user_role`;
 ```
 
 > **约束**：`role_id` 对应的 `tenant_role.tenant_id` 必须等于本表 `tenant_id`，在业务层校验，不使用 FK（避免跨库/跨服务约束）。
+
+---
+
+### 1.9 内置数据初始化
+
+> 系统启动时必须执行，创建内置超管角色和内置管理员账号。完整 SQL 见 `sql/init_data.sql`。
+
+```sql
+-- ── 内置超级管理员角色 ──
+INSERT INTO `platform_role` (`id`, `role_name`, `role_key`, `is_builtin`, `is_super`, `description`)
+VALUES (1, '超级管理员', 'super_admin', 1, 1, '内置超管角色，不可删除/修改，持有此角色的用户拥有全部平台权限');
+
+-- ── 内置 admin 账号（密码 123456 的 BCrypt 值）──
+INSERT INTO `platform_user` (`id`, `username`, `password`, `nickname`, `is_builtin`, `status`)
+VALUES (1, 'admin', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '超级管理员', 1, 1);
+
+-- ── 将 admin 账号绑定到超管角色 ──
+INSERT INTO `platform_user_role` (`user_id`, `role_id`) VALUES (1, 1);
+
+-- ── 默认租户（天南大陆） ──
+INSERT INTO `platform_tenant` (`id`, `tenant_code`, `tenant_name`, `status`, `data_version`)
+VALUES (1, 'default', '默认租户', 1, 0);
+
+-- ── 为默认租户授权所有 scope=tenant 的权限节点 ──
+INSERT INTO `tenant_permission` (`tenant_id`, `permission_id`)
+SELECT 1, `id` FROM `platform_permission` WHERE `scope` = 'tenant' AND `is_deleted` = 0;
+```
+
+**内置角色规则**：
+- `is_builtin=1` 的角色：不可删除、不可修改 `role_name`/`role_key`/`is_super`/`is_builtin`
+- 超管角色的权限勾选仅为前端展示效果（展示为全勾选），后端不依赖 `platform_role_permission` 做校验
+
+**内置用户规则**：
+- `is_builtin=1` 的用户：不可删除、不可禁用、不可修改其角色分配
+- 可修改密码、昵称等非关键字段
 
 ---
 
@@ -481,7 +490,7 @@ app_user ──── 1:N ──── tenant_field_value
 | `platform_user` | 实体表 | 平台管理员账号 |
 | `platform_tenant` | 实体表 | 租户信息 |
 | `platform_permission` | 实体表 | 全局权限节点树（含 scope 字段） |
-| `platform_role` | 实体表 | 平台级角色 |
+| `platform_role` | 实体表 | 平台级角色（`is_super=1` 标识超管角色，`is_builtin=1` 标识内置不可改） |
 | `platform_user_role` | 关联表 | 平台用户 ↔ 平台角色 |
 | `platform_role_permission` | 关联表 | 平台角色 ↔ 权限节点（scope=platform） |
 | `tenant_role` | 实体表 | 租户角色（含 tenant_id） |
