@@ -43,7 +43,7 @@ public class RoleController {
             }
     )
     @GetMapping
-    @PreAuthorize("hasAuthority('tenant:role:list')")
+    @PreAuthorize("hasAuthority('platform:role:list')")
     public Result<Page<RoleVo>> page(RoleQueryDto queryDto) {
         return Result.success(roleService.page(queryDto));
     }
@@ -74,7 +74,7 @@ public class RoleController {
             }
     )
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('tenant:role:query')")
+    @PreAuthorize("hasAuthority('platform:role:query')")
     public Result<RoleVo> get(@PathVariable Long id) {
         return Result.success(roleService.get(id));
     }
@@ -92,7 +92,7 @@ public class RoleController {
             }
     )
     @GetMapping("/{id}/permissions")
-    @PreAuthorize("hasAuthority('tenant:role:query')")
+    @PreAuthorize("hasAuthority('platform:role:query')")
     public Result<List<Long>> getRolePermissionIds(@PathVariable Long id) {
         return Result.success(roleService.getRolePermissionIds(id));
     }
@@ -110,7 +110,7 @@ public class RoleController {
             }
     )
     @PostMapping("/{id}/permissions")
-    @PreAuthorize("hasAuthority('tenant:role:assign')")
+    @PreAuthorize("hasAuthority('role:assign')")
     @Log(module = "角色管理", action = "分配权限")
     public Result<Void> assignRolePermissions(@PathVariable Long id, @RequestBody Map<String, List<Long>> requestBody) {
         // Call the new assignPermissions method for permission assignment
@@ -129,7 +129,7 @@ public class RoleController {
             }
     )
     @PostMapping
-    @PreAuthorize("hasAuthority('tenant:role:add')")
+    @PreAuthorize("hasAuthority('platform:role:add')")
     @Log(module = "角色管理", action = "新增角色")
     public Result<Void> save(@RequestBody RoleDto roleDto) {
         roleService.save(roleDto);
@@ -147,7 +147,7 @@ public class RoleController {
             }
     )
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('tenant:role:edit')")
+    @PreAuthorize("hasAuthority('platform:role:edit')")
     @Log(module = "角色管理", action = "修改角色")
     public Result<Void> update(@PathVariable Long id, @RequestBody Map<String, Object> requestBody) {
         // Create a RoleDto and set the id from path variable
@@ -173,7 +173,7 @@ public class RoleController {
             }
     )
     @DeleteMapping("/{ids}")
-    @PreAuthorize("hasAuthority('tenant:role:remove')")
+    @PreAuthorize("hasAuthority('platform:role:remove')")
     @Log(module = "角色管理", action = "删除角色")
     public Result<Void> delete(@PathVariable String ids) {
         // Convert comma-separated string to List<Long>

@@ -11,6 +11,8 @@ import {
   type TenantVo, type TenantDto,
 } from '../../api/tenantApi';
 
+const TENANT_CODE_PATTERN = /^[a-z0-9_-]{2,64}$/;
+
 const TenantPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<TenantVo[]>([]);
@@ -57,7 +59,8 @@ const TenantPage: React.FC = () => {
     try {
       const dto: TenantDto = {
         ...values,
-        expireTime: values.expireTime ? values.expireTime.toISOString() : undefined,
+        // 使用本地时间格式，避免带时区后缀导致 Jackson 解析 LocalDateTime 失败
+        expireTime: values.expireTime ? values.expireTime.format('YYYY-MM-DDTHH:mm:ss') : undefined,
       };
       if (editing) {
         await updateTenant(editing.id, dto);
@@ -190,19 +193,38 @@ const TenantPage: React.FC = () => {
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="tenantCode" label="租户编码" rules={[{ required: true, message: '请输入租户编码' }]}>
-                <Input placeholder="唯一标识符" disabled={!!editing} />
+              <Form.Item
+                name="tenantCode"
+                label="租户编码"
+                rules={[
+                  { required: true, message: '请输入租户编码' },
+                  { max: 64, message: '不超过64个字符' },
+                  {
+                    pattern: TENANT_CODE_PATTERN,
+                    message: '仅允许小写字母、数字、下划线、连字符，长度2-64',
+                  },
+                ]}
+              >
+                <Input placeholder="如：my-tenant（小写字母/数字/-/_）" disabled={!!editing} maxLength={64} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="tenantName" label="租户名称" rules={[{ required: true, message: '请输入租户名称' }]}>
-                <Input placeholder="显示名称" />
+              <Form.Item
+                name="tenantName"
+                label="租户名称"
+                rules={[
+                  { required: true, message: '请输入租户名称' },
+                  { max: 128, message: '不超过128个字符' },
+                  { whitespace: true, message: '名称不能为空白字符' },
+                ]}
+              >
+                <Input placeholder="显示名称" maxLength={128} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="status" label="状态">
+              <Form.Item name="status" label="状态" initialValue={1}>
                 <Select>
                   <Select.Option value={1}>启用</Select.Option>
                   <Select.Option value={0}>禁用</Select.Option>
@@ -210,13 +232,25 @@ const TenantPage: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="maxUsers" label="最大用户数">
-                <InputNumber min={1} style={{ width: '100%' }} />
+              <Form.Item
+                name="maxUsers"
+                label="最大用户数"
+                rules={[{ required: true, message: '请填写最大用户数' }]}
+              >
+                <InputNumber min={1} max={100000} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="expireTime" label="到期时间（不填表示永不过期）">
-            <DatePicker showTime style={{ width: '100%' }} />
+          <Form.Item
+            name="expireTime"
+            label="到期时间（不填表示永不过期）"
+          >
+            <DatePicker
+              showTime
+              style={{ width: '100%' }}
+              disabledDate={(d) => d && d.isBefore(dayjs(), 'day')}
+              placeholder="留空表示永不过期"
+            />
           </Form.Item>
         </Form>
       </Modal>

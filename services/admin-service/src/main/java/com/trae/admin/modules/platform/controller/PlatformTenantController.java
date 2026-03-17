@@ -9,6 +9,7 @@ import com.trae.admin.modules.platform.service.PlatformTenantService;
 import com.trae.admin.modules.platform.vo.TenantVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -48,7 +49,7 @@ public class PlatformTenantController {
     @PostMapping
     @PreAuthorize("hasAuthority('platform:tenant:add')")
     @Log(module = "租户管理", action = "新增租户")
-    public Result<Void> save(@RequestBody TenantDto dto) {
+    public Result<Void> save(@Valid @RequestBody TenantDto dto) {
         tenantService.save(dto);
         return Result.success();
     }
@@ -57,7 +58,7 @@ public class PlatformTenantController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('platform:tenant:edit')")
     @Log(module = "租户管理", action = "修改租户")
-    public Result<Void> update(@PathVariable Long id, @RequestBody TenantDto dto) {
+    public Result<Void> update(@PathVariable Long id, @Valid @RequestBody TenantDto dto) {
         dto.setId(id);
         tenantService.update(dto);
         return Result.success();

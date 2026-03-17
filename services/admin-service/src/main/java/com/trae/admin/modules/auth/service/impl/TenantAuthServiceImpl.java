@@ -120,9 +120,10 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         Long userId = jwtUtil.getUserId(claims);
         String mobile = jwtUtil.getMobile(claims);
 
-        // 校验用户是否属于该租户
-        List<Long> roleIds = tenantUserRoleMapper.selectRoleIdsByUserAndTenant(userId, tenantId);
-        if (roleIds.isEmpty()) {
+        // 校验用户是否属于该租户：以 user-service 的 tenant_user 成员关系为准（与登录时判断标准一致）
+        // 不能仅依赖 tenant_user_role，因为用户可能尚未被分配角色但已是合法成员
+        List<Long> memberTenants = getUserTenants(userId);
+        if (!memberTenants.contains(tenantId)) {
             throw new BusinessException("用户不属于该租户");
         }
 
