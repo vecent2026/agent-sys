@@ -10,7 +10,7 @@ export interface PlatformPermissionForm extends PermissionForm {
 }
 
 export const getPlatformPermissionTree = () => {
-  return platformRequest.get<PlatformPermission[]>('/api/platform/permissions');
+  return platformRequest.get<PlatformPermission[]>('/api/platform/permissions/tree');
 };
 
 export const createPlatformPermission = (data: PlatformPermissionForm) => {

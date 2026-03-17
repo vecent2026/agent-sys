@@ -66,9 +66,10 @@ const TenantFormDrawer: React.FC<TenantFormDrawerProps> = ({
   const handleSubmit = () => {
     form.validateFields().then((values: any) => {
       const expireVal = values.expireTime;
-      const expireStr = expireVal && typeof expireVal.toISOString === 'function'
-        ? expireVal.toISOString()
-        : (expireVal || null);
+      // 使用本地时间格式（不带时区），避免 Jackson 解析 LocalDateTime 失败
+      const expireStr = expireVal && typeof expireVal.format === 'function'
+        ? expireVal.format('YYYY-MM-DDTHH:mm:ss')
+        : null;
 
       if (editing) {
         const data: UpdateTenantForm = {
@@ -166,18 +167,20 @@ const TenantFormDrawer: React.FC<TenantFormDrawerProps> = ({
           <>
             <Form.Item
               name="adminMobile"
-              label="管理员手机号"
-              rules={[{ required: true, message: '请输入管理员手机号' }, { len: 11, message: '手机号11位' }]}
+              label="初始管理员手机号"
+              rules={[
+                { required: true, message: '请输入管理员手机号' },
+                { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的11位手机号' },
+              ]}
             >
-              <Input placeholder="作为登录账号" />
+              <Input placeholder="作为初始管理员的登录账号" maxLength={11} />
             </Form.Item>
 
             <Form.Item
               name="adminNickname"
               label="管理员昵称"
-              rules={[{ required: true, message: '请输入管理员昵称' }]}
             >
-              <Input placeholder="选填" />
+              <Input placeholder="选填，不填默认使用手机号" maxLength={50} />
             </Form.Item>
           </>
         )}
