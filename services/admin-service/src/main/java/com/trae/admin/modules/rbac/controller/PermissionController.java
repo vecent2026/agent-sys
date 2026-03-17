@@ -38,7 +38,7 @@ public class PermissionController {
             }
     )
     @GetMapping("/tree")
-    @PreAuthorize("hasAuthority('platform:permission:list')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:perm:list')")
     public Result<List<PermissionVo>> listTree() {
         return Result.success(permissionService.listTree());
     }
@@ -53,7 +53,7 @@ public class PermissionController {
             }
     )
     @GetMapping
-    @PreAuthorize("hasAuthority('platform:permission:list')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:perm:list')")
     public Result<List<PermissionVo>> listAll(@RequestParam(required = false) String name) {
         return Result.success(permissionService.listAll(name));
     }
@@ -68,7 +68,7 @@ public class PermissionController {
             }
     )
     @PostMapping
-    @PreAuthorize("hasAuthority('platform:permission:add')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:perm:add')")
     @Log(module = "权限管理", action = "新增权限")
     public Result<Void> save(@RequestBody PermissionDto permissionDto) {
         permissionService.save(permissionDto);
@@ -85,7 +85,7 @@ public class PermissionController {
             }
     )
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('platform:permission:edit')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:perm:edit')")
     @Log(module = "权限管理", action = "修改权限")
     public Result<Void> update(@PathVariable Long id, @RequestBody PermissionDto permissionDto) {
         permissionDto.setId(id);
@@ -107,7 +107,7 @@ public class PermissionController {
             }
     )
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('platform:permission:remove')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:perm:remove')")
     @Log(module = "权限管理", action = "删除权限")
     public Result<Void> delete(@PathVariable Long id) {
         permissionService.delete(id);

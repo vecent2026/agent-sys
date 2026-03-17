@@ -18,7 +18,14 @@ import type { MenuProps } from 'antd';
 
 const { Header, Sider, Content } = Layout;
 
-const PLATFORM_MENUS: MenuProps['items'] = [
+type PlatformMenuItem = {
+  key: string;
+  icon: React.ReactNode;
+  label: string;
+  permission?: string;
+};
+
+const RAW_PLATFORM_MENUS: PlatformMenuItem[] = [
   {
     key: '/dashboard',
     icon: <DashboardOutlined />,
@@ -28,37 +35,42 @@ const PLATFORM_MENUS: MenuProps['items'] = [
     key: '/tenants',
     icon: <ApartmentOutlined />,
     label: '租户管理',
+    permission: 'platform:tenant:list',
   },
   {
     key: '/users',
     icon: <TeamOutlined />,
     label: '平台用户',
+    permission: 'platform:user:list',
   },
   {
     key: '/roles',
     icon: <SafetyOutlined />,
     label: '平台角色',
+    permission: 'platform:role:list',
   },
   {
     key: '/permissions',
     icon: <KeyOutlined />,
     label: '权限节点',
+    permission: 'platform:perm:list',
   },
   {
     key: '/logs',
     icon: <FileTextOutlined />,
     label: '操作日志',
+    permission: 'platform:log:list',
   },
 ];
 
 const PlatformLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const {
-    token: { colorBgContainer },
+    token: { colorBgContainer, colorBgBase },
   } = theme.useToken();
   const navigate = useNavigate();
   const location = useLocation();
-  const { userInfo, logout } = usePlatformUserStore();
+  const { userInfo, permissions, isSuper, logout } = usePlatformUserStore();
 
   const handleLogout = () => {
     logout();
@@ -74,13 +86,20 @@ const PlatformLayout: React.FC = () => {
     },
   ];
 
-  const menuItemsWithClick = useMemo(() =>
-    PLATFORM_MENUS?.map((item: any) => ({
-      ...item,
-      onClick: () => navigate(item.key as string),
-    })) || [],
-    [navigate]
-  );
+  const menuItemsWithClick = useMemo<MenuProps['items']>(() => {
+    const filterByPermission = (item: PlatformMenuItem) => {
+      if (!item.permission) return true;
+      if (isSuper) return true;
+      return permissions.includes(item.permission);
+    };
+
+    return RAW_PLATFORM_MENUS.filter(filterByPermission).map((item) => ({
+      key: item.key,
+      icon: item.icon,
+      label: item.label,
+      onClick: () => navigate(item.key),
+    }));
+  }, [navigate, permissions, isSuper]);
 
   return (
     <Layout style={{ height: '100vh', overflow: 'hidden', display: 'flex', width: '100%' }}>
@@ -147,7 +166,7 @@ const PlatformLayout: React.FC = () => {
             </Dropdown>
           </div>
         </Header>
-        <Content style={{ padding: 24, overflowY: 'auto', flex: 1, background: colorBgContainer }}>
+        <Content style={{ padding: 24, overflowY: 'auto', flex: 1, background: colorBgBase ?? '#F8FAFC' }}>
           <Outlet />
         </Content>
       </Layout>

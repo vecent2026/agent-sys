@@ -86,6 +86,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
                 String principal = claims.getSubject();
                 List<String> authorities = jwtUtil.getAuthorities(claims);
+                boolean isSuper = Boolean.TRUE.equals(claims.get("isSuper"));
+                if (isPlatform && isSuper) {
+                    authorities = new java.util.ArrayList<>(authorities != null ? authorities : List.of());
+                    if (!authorities.contains("ROLE_SUPER_ADMIN")) {
+                        authorities.add(0, "ROLE_SUPER_ADMIN");
+                    }
+                }
                 List<SimpleGrantedAuthority> grantedAuthorities = (authorities != null)
                         ? authorities.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList())
                         : List.of();
