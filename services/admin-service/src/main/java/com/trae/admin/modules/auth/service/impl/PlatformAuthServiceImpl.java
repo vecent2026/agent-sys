@@ -66,16 +66,11 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
         List<SysPermission> perms = isSuper
                 ? sysPermissionMapper.selectAllPermissions()
                 : sysPermissionMapper.selectPermissionsByUserId(user.getId());
-        List<String> authorities = perms.stream()
-                .filter(p -> StringUtils.hasText(p.getPermissionKey()))
-                .map(SysPermission::getPermissionKey)
-                .collect(Collectors.toList());
+        List<String> authorities = toPermissionKeys(perms);
 
         // 获取或初始化 tokenVersion
         int tokenVersion = user.getTokenVersion() != null ? user.getTokenVersion() : 0;
-        // 写入 Redis 版本（用于即时失效）
-        String versionKey = "platform:version:" + user.getId();
-        redisUtil.set(versionKey, String.valueOf(tokenVersion), 30, TimeUnit.DAYS);
+        cacheTokenVersion(user.getId(), tokenVersion);
 
         // 生成 tokens
         String accessToken = jwtUtil.createPlatformToken(
@@ -110,16 +105,22 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
         Long userId = jwtUtil.getUserId(claims);
         int tokenVersion = jwtUtil.getTokenVersion(claims);
 
-        // 校验版本
-        String versionKey = "platform:version:" + userId;
-        String storedVersion = redisUtil.get(versionKey);
-        if (storedVersion != null && !storedVersion.equals(String.valueOf(tokenVersion))) {
-            throw new BusinessException("Token 已失效，请重新登录");
-        }
-
         SysUser user = sysUserMapper.selectById(userId);
         if (user == null || (user.getStatus() != null && user.getStatus() == 0)) {
             throw new BusinessException("用户不存在或已禁用");
+        }
+
+        // 校验版本：优先 Redis，Redis 不可用时降级到 DB
+        String storedVersion = getCachedTokenVersion(userId);
+        if (storedVersion != null) {
+            if (!storedVersion.equals(String.valueOf(tokenVersion))) {
+                throw new BusinessException("Token 已失效，请重新登录");
+            }
+        } else {
+            int dbVersion = user.getTokenVersion() != null ? user.getTokenVersion() : 0;
+            if (dbVersion != tokenVersion) {
+                throw new BusinessException("Token 已失效，请重新登录");
+            }
         }
 
         // 重新获取权限（超级管理员拥有全部权限）
@@ -127,10 +128,7 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
         List<SysPermission> perms = isSuper
                 ? sysPermissionMapper.selectAllPermissions()
                 : sysPermissionMapper.selectPermissionsByUserId(userId);
-        List<String> authorities = perms.stream()
-                .filter(p -> StringUtils.hasText(p.getPermissionKey()))
-                .map(SysPermission::getPermissionKey)
-                .collect(Collectors.toList());
+        List<String> authorities = toPermissionKeys(perms);
 
         String newAccessToken = jwtUtil.createPlatformToken(
                 user.getId(), user.getUsername(),
@@ -194,10 +192,7 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
         List<SysPermission> perms = isSuper
                 ? sysPermissionMapper.selectAllPermissions()
                 : sysPermissionMapper.selectPermissionsByUserId(user.getId());
-        return perms.stream()
-                .filter(p -> StringUtils.hasText(p.getPermissionKey()))
-                .map(SysPermission::getPermissionKey)
-                .collect(Collectors.toList());
+        return toPermissionKeys(perms);
     }
 
     // ──────────────────────────────────────────────────────
@@ -224,5 +219,33 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
             return token.substring(7);
         }
         return token;
+    }
+
+    private List<String> toPermissionKeys(List<SysPermission> perms) {
+        if (perms == null || perms.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return perms.stream()
+                .filter(Objects::nonNull)
+                .filter(p -> StringUtils.hasText(p.getPermissionKey()))
+                .map(SysPermission::getPermissionKey)
+                .collect(Collectors.toList());
+    }
+
+    private void cacheTokenVersion(Long userId, int tokenVersion) {
+        try {
+            redisUtil.set("platform:version:" + userId, String.valueOf(tokenVersion), 30, TimeUnit.DAYS);
+        } catch (Exception e) {
+            log.warn("cache token version failed, fallback to DB version check. userId={}", userId, e);
+        }
+    }
+
+    private String getCachedTokenVersion(Long userId) {
+        try {
+            return redisUtil.get("platform:version:" + userId);
+        } catch (Exception e) {
+            log.warn("read token version from redis failed, fallback to DB. userId={}", userId, e);
+            return null;
+        }
     }
 }
