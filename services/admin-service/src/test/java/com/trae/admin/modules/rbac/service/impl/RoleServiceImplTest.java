@@ -1,78 +1,81 @@
 package com.trae.admin.modules.rbac.service.impl;
 
+import com.trae.admin.common.exception.BusinessException;
 import com.trae.admin.modules.rbac.dto.RoleDto;
 import com.trae.admin.modules.rbac.entity.SysRole;
 import com.trae.admin.modules.rbac.mapper.SysRoleMapper;
 import com.trae.admin.modules.rbac.mapper.SysRolePermissionMapper;
-import com.trae.admin.modules.user.entity.SysUserRole;
-import com.trae.admin.modules.user.mapper.SysUserRoleMapper;
+import com.trae.admin.modules.tenant.mapper.TenantUserRoleMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * RoleServiceImpl 单元测试（已使用 TenantUserRoleMapper 替代旧 SysUserRoleMapper）
+ */
 @ExtendWith(MockitoExtension.class)
 class RoleServiceImplTest {
 
-    @Mock
-    private SysRoleMapper sysRoleMapper;
-    @Mock
-    private SysUserRoleMapper sysUserRoleMapper;
-    @Mock
-    private SysRolePermissionMapper sysRolePermissionMapper;
-    
+    @Mock SysRoleMapper sysRoleMapper;
+    @Mock SysRolePermissionMapper sysRolePermissionMapper;
+    @Mock TenantUserRoleMapper tenantUserRoleMapper;   // 新依赖
+
     @InjectMocks
     private RoleServiceImpl roleService;
 
+    // ── delete ─────────────────────────────────────────────
+
     @Test
-    void delete_HasUsers() {
-        // Arrange
-        List<Long> roleIds = new ArrayList<>();
-        roleIds.add(1L);
-        
-        // Act
-        roleService.delete(roleIds);
-        
-        // Assert
-        verify(sysRoleMapper).deleteBatchIds(eq(roleIds));
+    void delete_roleHasNoUsers_deletesSuccessfully() {
+        when(tenantUserRoleMapper.selectCount(any())).thenReturn(0L);
+
+        roleService.delete(List.of(1L));
+
+        verify(sysRoleMapper).deleteBatchIds(List.of(1L));
         verify(sysRolePermissionMapper).delete(any());
     }
 
     @Test
-    void delete_NoUsers() {
-        // Arrange
-        List<Long> roleIds = new ArrayList<>();
-        roleIds.add(1L);
-        
-        // Act
-        roleService.delete(roleIds);
-        
-        // Assert
-        verify(sysRoleMapper).deleteBatchIds(eq(roleIds));
-        verify(sysRolePermissionMapper).delete(any());
+    void delete_roleHasUsers_throwsBusinessException() {
+        when(tenantUserRoleMapper.selectCount(any())).thenReturn(2L);
+
+        assertThrows(BusinessException.class, () -> roleService.delete(List.of(1L)));
+
+        verify(sysRoleMapper, never()).deleteBatchIds(any());
     }
 
+    // ── save ───────────────────────────────────────────────
+
     @Test
-    void save_Success() {
-        // Arrange
-        RoleDto roleDto = new RoleDto();
-        roleDto.setRoleName("测试角色");
-        roleDto.setRoleKey("test_role");
-        
+    void save_newRole_insertsSuccessfully() {
+        RoleDto dto = new RoleDto();
+        dto.setRoleName("测试角色");
+        dto.setRoleKey("test_role");
+
         when(sysRoleMapper.selectCount(any())).thenReturn(0L);
-        
-        // Act
-        roleService.save(roleDto);
-        
-        // Assert
+
+        roleService.save(dto);
+
         verify(sysRoleMapper).insert(any(SysRole.class));
+    }
+
+    @Test
+    void save_duplicateRoleKey_throwsBusinessException() {
+        RoleDto dto = new RoleDto();
+        dto.setRoleName("测试角色");
+        dto.setRoleKey("duplicate_key");
+
+        when(sysRoleMapper.selectCount(any())).thenReturn(1L);
+
+        assertThrows(BusinessException.class, () -> roleService.save(dto));
+        verify(sysRoleMapper, never()).insert(any());
     }
 }

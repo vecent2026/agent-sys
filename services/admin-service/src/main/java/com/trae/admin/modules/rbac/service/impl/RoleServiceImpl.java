@@ -11,8 +11,8 @@ import com.trae.admin.modules.rbac.mapper.SysRoleMapper;
 import com.trae.admin.modules.rbac.mapper.SysRolePermissionMapper;
 import com.trae.admin.modules.rbac.service.RoleService;
 import com.trae.admin.modules.rbac.vo.RoleVo;
-import com.trae.admin.modules.user.entity.SysUserRole;
-import com.trae.admin.modules.user.mapper.SysUserRoleMapper;
+import com.trae.admin.modules.tenant.entity.TenantUserRole;
+import com.trae.admin.modules.tenant.mapper.TenantUserRoleMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -29,7 +29,7 @@ public class RoleServiceImpl implements RoleService {
 
     private final SysRoleMapper sysRoleMapper;
     private final SysRolePermissionMapper sysRolePermissionMapper;
-    private final SysUserRoleMapper sysUserRoleMapper;
+    private final TenantUserRoleMapper tenantUserRoleMapper;
 
     @Override
     public Page<RoleVo> page(RoleQueryDto queryDto) {
@@ -163,8 +163,8 @@ public class RoleServiceImpl implements RoleService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(List<Long> ids) {
         // Check if assigned to users
-        if (sysUserRoleMapper.selectCount(new LambdaQueryWrapper<SysUserRole>()
-                .in(SysUserRole::getRoleId, ids)) > 0) {
+        if (tenantUserRoleMapper.selectCount(new LambdaQueryWrapper<TenantUserRole>()
+                .in(TenantUserRole::getRoleId, ids)) > 0) {
             throw new BusinessException("Cannot delete role assigned to users");
         }
 

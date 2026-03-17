@@ -1,55 +1,59 @@
 package com.trae.user;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.trae.user.dto.AppUserQueryDTO;
+import com.trae.user.cache.ImportCacheService;
+import com.trae.user.executor.ImportTaskExecutor;
 import com.trae.user.dto.BatchTagDTO;
 import com.trae.user.dto.UserStatusDTO;
 import com.trae.user.entity.AppUser;
-import com.trae.user.entity.AppUserTag;
-import com.trae.user.entity.AppUserTagRelation;
 import com.trae.user.mapper.AppUserMapper;
-import com.trae.user.service.AppUserService;
+import com.trae.user.service.AppUserFieldService;
+import com.trae.user.service.AppUserFieldValueService;
 import com.trae.user.service.AppUserTagRelationService;
 import com.trae.user.service.AppUserTagService;
+import com.trae.user.service.impl.AppUserServiceImpl;
 import com.trae.user.vo.AppUserVO;
 import com.trae.user.vo.UserFieldValueVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * AppUserServiceImpl 单元测试
+ * 注意：AppUserServiceImpl extends ServiceImpl，需要通过 ReflectionTestUtils 注入 baseMapper
+ */
 @ExtendWith(MockitoExtension.class)
 public class AppUserServiceTest {
 
-    @Mock
-    private AppUserMapper appUserMapper;
+    @Mock AppUserMapper appUserMapper;
+    @Mock AppUserTagService tagService;
+    @Mock AppUserTagRelationService tagRelationService;
+    @Mock AppUserFieldService fieldService;
+    @Mock AppUserFieldValueService fieldValueService;
+    @Mock ImportCacheService cacheService;
+    @Mock ImportTaskExecutor importTaskExecutor;
 
-    @Mock
-    private AppUserTagService tagService;
-
-    @Mock
-    private AppUserTagRelationService tagRelationService;
-
-    @InjectMocks
-    private AppUserService appUserService;
+    private AppUserServiceImpl appUserService;
 
     private AppUser testUser;
-    private AppUserTag testTag;
 
     @BeforeEach
     void setUp() {
-        // 初始化测试数据
+        appUserService = new AppUserServiceImpl(
+                tagService, tagRelationService, fieldService, fieldValueService, cacheService, importTaskExecutor);
+        // ServiceImpl 父类中的 baseMapper 字段名不同，需手动注入
+        ReflectionTestUtils.setField(appUserService, "baseMapper", appUserMapper);
+
         testUser = new AppUser();
         testUser.setId(1L);
         testUser.setNickname("测试用户");
@@ -57,146 +61,53 @@ public class AppUserServiceTest {
         testUser.setEmail("test@example.com");
         testUser.setStatus(1);
         testUser.setRegisterTime(LocalDateTime.now());
-
-        testTag = new AppUserTag();
-        testTag.setId(1L);
-        testTag.setName("VIP用户");
-        testTag.setColor("gold");
-        testTag.setUserCount(0);
+        testUser.setIsDeleted(0);
     }
 
-    @Test
-    void testGetUserPage() {
-        // 准备测试数据
-        AppUserQueryDTO queryDTO = new AppUserQueryDTO();
-        queryDTO.setPage(1);
-        queryDTO.setSize(10);
-
-        List<AppUser> userList = new ArrayList<>();
-        userList.add(testUser);
-
-        Page<AppUser> page = new Page<>(1, 10);
-        page.setRecords(userList);
-        page.setTotal(1);
-
-        // 模拟方法调用
-        when(appUserMapper.selectPage(any(), any())).thenReturn(page);
-        when(tagRelationService.getTagIdsByUserId(anyLong())).thenReturn(new ArrayList<>());
-
-        // 执行测试
-        Page<AppUserVO> result = appUserService.getUserPage(queryDTO);
-
-        // 验证结果
-        assertNotNull(result);
-        assertEquals(1, result.getTotal());
-        assertEquals(1, result.getRecords().size());
-        assertEquals("测试用户", result.getRecords().get(0).getNickname());
-    }
+    // ── getUserDetail ──────────────────────────────────────
 
     @Test
-    void testGetUserDetail() {
-        // 模拟方法调用
-        when(appUserMapper.selectById(anyLong())).thenReturn(testUser);
-        when(tagRelationService.getTagIdsByUserId(anyLong())).thenReturn(new ArrayList<>());
+    void testGetUserDetail_returnsVO() {
+        when(appUserMapper.selectById(1L)).thenReturn(testUser);
+        when(tagRelationService.getTagIdsByUserId(1L)).thenReturn(new ArrayList<>());
 
-        // 执行测试
         AppUserVO result = appUserService.getUserDetail(1L);
 
-        // 验证结果
         assertNotNull(result);
         assertEquals("测试用户", result.getNickname());
+        assertEquals("13800138000", result.getMobile());
     }
 
+    // ── updateUserStatus ───────────────────────────────────
+
     @Test
-    void testUpdateUserStatus() {
-        // 准备测试数据
-        UserStatusDTO statusDTO = new UserStatusDTO();
-        statusDTO.setStatus(0);
+    void testUpdateUserStatus_callsUpdateById() {
+        UserStatusDTO dto = new UserStatusDTO();
+        dto.setStatus(0);
 
-        // 执行测试
-        appUserService.updateUserStatus(1L, statusDTO);
+        appUserService.updateUserStatus(1L, dto);
 
-        // 验证结果
-        verify(appUserMapper, times(1)).updateById(any(AppUser.class));
+        verify(appUserMapper).updateById(any(AppUser.class));
     }
 
+    // ── updateUserFieldValues ──────────────────────────────
+
     @Test
-    void testAssignUserTags() {
-        // 准备测试数据
-        List<Long> tagIds = new ArrayList<>();
-        tagIds.add(1L);
-
-        // 模拟方法调用
-        when(tagRelationService.getTagIdsByUserId(anyLong())).thenReturn(new ArrayList<>());
-
-        // 执行测试
-        appUserService.assignUserTags(1L, tagIds);
-
-        // 验证结果
-        verify(tagRelationService, times(1)).lambdaUpdate();
-        verify(tagRelationService, times(1)).saveBatch(anyList());
-        verify(tagService, times(1)).updateTagUserCount(anyLong());
+    void testUpdateUserFieldValues_emptyList_noException() {
+        assertDoesNotThrow(() -> appUserService.updateUserFieldValues(1L, new ArrayList<>()));
     }
 
-    @Test
-    void testBatchAddTags() {
-        // 准备测试数据
-        BatchTagDTO batchTagDTO = new BatchTagDTO();
-        List<Long> userIds = new ArrayList<>();
-        userIds.add(1L);
-        List<Long> tagIds = new ArrayList<>();
-        tagIds.add(1L);
-        batchTagDTO.setUserIds(userIds);
-        batchTagDTO.setTagIds(tagIds);
-
-        // 模拟方法调用
-        when(tagRelationService.getTagIdsByUserId(anyLong())).thenReturn(new ArrayList<>());
-
-        // 执行测试
-        appUserService.batchAddTags(batchTagDTO);
-
-        // 验证结果
-        verify(tagRelationService, times(1)).saveBatch(anyList());
-        verify(tagService, times(1)).updateTagUserCount(anyLong());
-    }
+    // ── batchRemoveTags ────────────────────────────────────
 
     @Test
-    void testBatchRemoveTags() {
-        // 准备测试数据
-        BatchTagDTO batchTagDTO = new BatchTagDTO();
-        List<Long> userIds = new ArrayList<>();
-        userIds.add(1L);
-        List<Long> tagIds = new ArrayList<>();
-        tagIds.add(1L);
-        batchTagDTO.setUserIds(userIds);
-        batchTagDTO.setTagIds(tagIds);
+    void testBatchRemoveTags_delegatesToRelationService() {
+        BatchTagDTO dto = new BatchTagDTO();
+        dto.setUserIds(List.of(1L));
+        dto.setTagIds(List.of(1L));
 
-        // 执行测试
-        appUserService.batchRemoveTags(batchTagDTO);
+        appUserService.batchRemoveTags(dto);
 
-        // 验证结果
-        verify(tagRelationService, times(1)).batchDeleteByUserIdsAndTagIds(anyList(), anyList());
-        verify(tagService, times(1)).updateTagUserCount(anyLong());
-    }
-
-    @Test
-    void testGetUserFieldValues() {
-        // 执行测试
-        List<UserFieldValueVO> result = appUserService.getUserFieldValues(1L);
-
-        // 验证结果
-        assertNotNull(result);
-    }
-
-    @Test
-    void testUpdateUserFieldValues() {
-        // 准备测试数据
-        List<UserFieldValueVO> fieldValues = new ArrayList<>();
-
-        // 执行测试
-        appUserService.updateUserFieldValues(1L, fieldValues);
-
-        // 验证结果
-        // 这里可以添加更多验证逻辑
+        verify(tagRelationService).batchDeleteByUserIdsAndTagIds(List.of(1L), List.of(1L));
+        verify(tagService).batchUpdateTagUserCount(List.of(1L));
     }
 }

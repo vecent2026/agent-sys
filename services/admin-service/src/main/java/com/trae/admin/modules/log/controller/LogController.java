@@ -37,7 +37,7 @@ public class LogController {
             }
     )
     @GetMapping
-    @PreAuthorize("hasAuthority('sys:log:list')")
+    @PreAuthorize("hasAuthority('platform:log:list')")
     public Result<Page<SysLogDocument>> page(LogQueryDto queryDto) {
         return Result.success(logService.page(queryDto));
     }

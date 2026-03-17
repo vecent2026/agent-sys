@@ -20,8 +20,9 @@ public class PermissionVo {
     private String component;
     private Integer sort;
     private Boolean logEnabled;
+    private String scope;
     private LocalDateTime createTime;
-    
+
     /**
      * 子节点
      */

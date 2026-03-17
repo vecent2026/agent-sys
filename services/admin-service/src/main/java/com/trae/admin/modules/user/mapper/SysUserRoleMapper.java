@@ -18,12 +18,12 @@ public interface SysUserRoleMapper extends BaseMapper<SysUserRole> {
     /**
      * 根据用户ID查询角色ID列表
      */
-    @Select("SELECT role_id FROM sys_user_role WHERE user_id = #{userId}")
+    @Select("SELECT role_id FROM platform_user_role WHERE user_id = #{userId}")
     List<Long> selectRoleIdsByUserId(@Param("userId") Long userId);
-    
+
     /**
      * 根据用户ID删除角色关联
      */
-    @Delete("DELETE FROM sys_user_role WHERE user_id = #{userId}")
+    @Delete("DELETE FROM platform_user_role WHERE user_id = #{userId}")
     int deleteByUserId(@Param("userId") Long userId);
 }

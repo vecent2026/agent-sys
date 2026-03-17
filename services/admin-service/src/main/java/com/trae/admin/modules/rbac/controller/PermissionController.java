@@ -19,10 +19,11 @@ import java.util.List;
 
 /**
  * 权限管理控制器
+ * 注：权限标识与数据库保持一致，使用 platform:menu:* 前缀
  */
 @Tag(name = "权限模块", description = "菜单、按钮、API权限管理，树形结构展示")
 @RestController
-@RequestMapping("/api/permissions")
+@RequestMapping("/api/platform/permissions")
 @RequiredArgsConstructor
 public class PermissionController {
 
@@ -38,7 +39,7 @@ public class PermissionController {
             }
     )
     @GetMapping("/tree")
-    @PreAuthorize("hasAuthority('sys:menu:list')")
+    @PreAuthorize("hasAuthority('platform:menu:list')")
     public Result<List<PermissionVo>> listTree() {
         return Result.success(permissionService.listTree());
     }
@@ -53,7 +54,7 @@ public class PermissionController {
             }
     )
     @GetMapping
-    @PreAuthorize("hasAuthority('sys:menu:list')")
+    @PreAuthorize("hasAuthority('platform:menu:list')")
     public Result<List<PermissionVo>> listAll(@RequestParam(required = false) String name) {
         return Result.success(permissionService.listAll(name));
     }
@@ -68,7 +69,7 @@ public class PermissionController {
             }
     )
     @PostMapping
-    @PreAuthorize("hasAuthority('sys:menu:add')")
+    @PreAuthorize("hasAuthority('platform:menu:add')")
     @Log(module = "权限管理", action = "新增权限")
     public Result<Void> save(@RequestBody PermissionDto permissionDto) {
         permissionService.save(permissionDto);
@@ -85,7 +86,7 @@ public class PermissionController {
             }
     )
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('sys:menu:edit')")
+    @PreAuthorize("hasAuthority('platform:menu:edit')")
     @Log(module = "权限管理", action = "修改权限")
     public Result<Void> update(@PathVariable Long id, @RequestBody PermissionDto permissionDto) {
         permissionDto.setId(id);
@@ -107,7 +108,7 @@ public class PermissionController {
             }
     )
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('sys:menu:remove')")
+    @PreAuthorize("hasAuthority('platform:menu:remove')")
     @Log(module = "权限管理", action = "删除权限")
     public Result<Void> delete(@PathVariable Long id) {
         permissionService.delete(id);

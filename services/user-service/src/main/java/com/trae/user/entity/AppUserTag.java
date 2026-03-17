@@ -5,7 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("user_tag")
+@TableName("tenant_tag")
 public class AppUserTag {
     @TableId(type = IdType.AUTO)
     private Long id;

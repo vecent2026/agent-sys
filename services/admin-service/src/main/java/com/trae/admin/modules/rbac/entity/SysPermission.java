@@ -12,7 +12,7 @@ import lombok.EqualsAndHashCode;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-@TableName("sys_permission")
+@TableName("platform_permission")
 public class SysPermission extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
@@ -57,4 +57,9 @@ public class SysPermission extends BaseEntity {
      * 排序号
      */
     private Integer sort;
+
+    /**
+     * 作用域: platform=平台专属; tenant=可授权给租户
+     */
+    private String scope;
 }

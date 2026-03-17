@@ -17,6 +17,8 @@ services:
       - ./services/admin-service/sql/schema.sql:/docker-entrypoint-initdb.d/01_admin_schema.sql
       - ./services/user-service/sql/schema.sql:/docker-entrypoint-initdb.d/02_user_schema.sql
       - ./services/user-service/sql/user_views.sql:/docker-entrypoint-initdb.d/03_user_views.sql
+      - ./services/admin-service/sql/v2_tenant_migration.sql:/docker-entrypoint-initdb.d/04_admin_v2_migration.sql
+      - ./services/user-service/sql/v2_tenant_migration.sql:/docker-entrypoint-initdb.d/05_user_v2_migration.sql
       - ./infrastructure/mysql/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
     networks:
       - trae-net
@@ -98,6 +100,7 @@ services:
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       ES_URIS: http://elasticsearch:9200
+      USER_SERVICE_URL: http://user-service:8082
     ports:
       - "8081:8081"
     networks:
@@ -115,6 +118,8 @@ services:
       kafka:
         condition: service_started
       elasticsearch:
+        condition: service_healthy
+      user-service:
         condition: service_healthy
 
   user-service:
@@ -167,26 +172,13 @@ services:
       elasticsearch:
         condition: service_healthy
 
-  agent-service:
-    build: ./services/agent-service
-    container_name: agent-service
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    ports:
-      - "8090:8090"
-    networks:
-      - trae-net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    depends_on:
-      kafka:
-        condition: service_started
+  # agent-service 已暂时移除（目录不存在）
+  # agent-service:
+  #   build: ./services/agent-service
+  #   ...
 
   frontend:
-    image: frontend:latest
+    build: ./frontend
     container_name: frontend
     networks:
       - trae-net
@@ -209,8 +201,6 @@ services:
       user-service:
         condition: service_healthy
       log-service:
-        condition: service_started
-      agent-service:
         condition: service_started
 
 networks:

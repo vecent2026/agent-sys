@@ -9,14 +9,17 @@ import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
 /**
- * 权限Mapper接口
+ * 权限Mapper接口（平台权限：platform_permission 表）
  */
 @Mapper
 public interface SysPermissionMapper extends BaseMapper<SysPermission> {
 
-    @Select("SELECT p.* FROM sys_permission p " +
-            "INNER JOIN sys_role_permission rp ON p.id = rp.permission_id " +
-            "INNER JOIN sys_user_role ur ON rp.role_id = ur.role_id " +
+    /**
+     * 查询平台用户的所有权限（通过 platform_user_role + platform_role_permission）
+     */
+    @Select("SELECT p.* FROM platform_permission p " +
+            "INNER JOIN platform_role_permission rp ON p.id = rp.permission_id " +
+            "INNER JOIN platform_user_role ur ON rp.role_id = ur.role_id " +
             "WHERE ur.user_id = #{userId} AND p.is_deleted = 0")
     List<SysPermission> selectPermissionsByUserId(@Param("userId") Long userId);
 }

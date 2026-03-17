@@ -13,6 +13,9 @@ logs/
 .vscode/
 .idea/
 *.iml
+.cursor/
+.trae/
+.codex/
 
 # 操作系统文件
 .DS_Store

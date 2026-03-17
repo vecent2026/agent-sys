@@ -167,7 +167,7 @@ public abstract class CustomFieldHandlerBase implements FieldFilterHandler {
      */
     protected void applyEqualsFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, Object value) {
         String normalizedValue = normalizeValue(value);
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND fv.field_value = '" + escapeSqlValue(normalizedValue) + "'";
         wrapper.exists(existsSql);
@@ -183,12 +183,12 @@ public abstract class CustomFieldHandlerBase implements FieldFilterHandler {
         // 不等于逻辑：没有该值的记录 OR 有其他值的记录
         wrapper.and(w -> w
             // 没有该值的记录
-            .notExists("SELECT 1 FROM app_user_field_value fv " +
+            .notExists("SELECT 1 FROM tenant_field_value fv " +
                       "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                       " AND fv.field_value = '" + escapeSqlValue(normalizedValue) + "'")
             .and(
                 // 但必须有该字段的其他记录（避免包含完全没有该字段的用户）
-                w2 -> w2.exists("SELECT 1 FROM app_user_field_value fv " +
+                w2 -> w2.exists("SELECT 1 FROM tenant_field_value fv " +
                                "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId)
             )
         );
@@ -200,7 +200,7 @@ public abstract class CustomFieldHandlerBase implements FieldFilterHandler {
      */
     protected void applyContainsFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, Object value) {
         String normalizedValue = normalizeValue(value);
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND fv.field_value LIKE '%" + escapeSqlValue(normalizedValue) + "%'";
         wrapper.exists(existsSql);
@@ -212,7 +212,7 @@ public abstract class CustomFieldHandlerBase implements FieldFilterHandler {
      */
     protected void applyNotContainsFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, Object value) {
         String normalizedValue = normalizeValue(value);
-        String notExistsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String notExistsSql = "SELECT 1 FROM tenant_field_value fv " +
                              "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                              " AND fv.field_value LIKE '%" + escapeSqlValue(normalizedValue) + "%'";
         wrapper.notExists(notExistsSql);
@@ -226,11 +226,11 @@ public abstract class CustomFieldHandlerBase implements FieldFilterHandler {
     protected void applyIsEmptyFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId) {
         wrapper.and(w -> w
             // 情况1：完全没有该字段的记录
-            .notExists("SELECT 1 FROM app_user_field_value fv " +
+            .notExists("SELECT 1 FROM tenant_field_value fv " +
                       "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId)
             .or(
                 // 情况2：有记录但值为空或null
-                w2 -> w2.exists("SELECT 1 FROM app_user_field_value fv " +
+                w2 -> w2.exists("SELECT 1 FROM tenant_field_value fv " +
                                "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                                " AND (fv.field_value IS NULL OR fv.field_value = '')")
             )
@@ -242,7 +242,7 @@ public abstract class CustomFieldHandlerBase implements FieldFilterHandler {
      * 不为空筛选
      */
     protected void applyIsNotEmptyFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId) {
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND fv.field_value IS NOT NULL AND fv.field_value <> ''";
         wrapper.exists(existsSql);
@@ -264,7 +264,7 @@ public abstract class CustomFieldHandlerBase implements FieldFilterHandler {
                 .map(v -> "'" + v + "'")
                 .collect(Collectors.joining(","));
         
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND fv.field_value IN (" + valuesStr + ")";
         wrapper.exists(existsSql);
@@ -286,7 +286,7 @@ public abstract class CustomFieldHandlerBase implements FieldFilterHandler {
                 .map(v -> "'" + v + "'")
                 .collect(Collectors.joining(","));
         
-        String notExistsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String notExistsSql = "SELECT 1 FROM tenant_field_value fv " +
                              "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                              " AND fv.field_value IN (" + valuesStr + ")";
         wrapper.notExists(notExistsSql);

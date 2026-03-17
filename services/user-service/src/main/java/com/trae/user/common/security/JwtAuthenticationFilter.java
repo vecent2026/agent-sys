@@ -1,5 +1,6 @@
 package com.trae.user.common.security;
 
+import com.trae.user.common.context.TenantContext;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -13,10 +14,16 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * JWT 认证过滤器 - 支持租户端双 Token 结构
+ *
+ * 从 Authorization 头解析 JWT，提取 tenantId 设置 TenantContext，
+ * 请求结束后在 finally 中清理 ThreadLocal。
+ */
 @Slf4j
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -30,68 +37,55 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-
-        final String authorizationHeader = request.getHeader("Authorization");
-
-        String username = null;
-        String jwt = null;
-
-        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-            jwt = authorizationHeader.substring(7);
-            try {
-                username = jwtUtil.getUsernameFromToken(jwt);
-            } catch (io.jsonwebtoken.ExpiredJwtException e) {
-                log.debug("Token expired: prefix={}", jwt.substring(0, Math.min(10, jwt.length())));
-            } catch (Exception e) {
-                log.debug("Token invalid or expired: {}", e.getMessage());
-            }
-        }
-
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            if (jwtUtil.validateToken(jwt, username)) {
-                List<SimpleGrantedAuthority> grantedAuthorities = extractAuthoritiesFromToken(jwt);
-                // 优先使用 JWT 中的 userId 作为 principal，供视图等接口解析当前用户 ID
-                Long userId = jwtUtil.getUserIdFromToken(jwt);
-                Object principal = (userId != null) ? String.valueOf(userId) : username;
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        principal, null, grantedAuthorities);
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-            }
-        }
-        chain.doFilter(request, response);
-    }
-
-    private List<SimpleGrantedAuthority> extractAuthoritiesFromToken(String token) {
-        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
         try {
-            Claims claims = jwtUtil.extractAllClaims(token);
-            Object authObj = claims.get("authorities");
-            if (authObj instanceof List) {
-                @SuppressWarnings("unchecked")
-                List<String> authList = (List<String>) authObj;
-                authorities = authList.stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .collect(Collectors.toList());
-            }
-            
-            if (authorities.isEmpty()) {
-                Object permsObj = claims.get("permissions");
-                if (permsObj instanceof List) {
-                    @SuppressWarnings("unchecked")
-                    List<String> permList = (List<String>) permsObj;
-                    authorities = permList.stream()
+            String jwt = extractJwt(request);
+            if (jwt != null && jwtUtil.validateToken(jwt)) {
+                Claims claims = jwtUtil.extractAllClaims(jwt);
+
+                // 跳过 preToken（仅在 /api/tenant/auth/select 使用，不设 SecurityContext）
+                if (Boolean.TRUE.equals(claims.get("isPre"))) {
+                    return;
+                }
+
+                // 设置租户上下文（平台端 token 无 tenantId，不设置）
+                Object tenantIdObj = claims.get("tenantId");
+                if (tenantIdObj != null) {
+                    TenantContext.setTenantId(Long.valueOf(tenantIdObj.toString()));
+                }
+
+                // 设置 SecurityContext
+                if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                    List<String> authList = extractAuthorities(claims);
+                    List<SimpleGrantedAuthority> grantedAuthorities = authList.stream()
                             .map(SimpleGrantedAuthority::new)
                             .collect(Collectors.toList());
+
+                    // 使用 userId 或 mobile 作为 principal
+                    Object userIdObj = claims.get("userId");
+                    String principal = (userIdObj != null) ? userIdObj.toString() : claims.getSubject();
+
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(principal, null, grantedAuthorities);
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
         } catch (Exception e) {
-            log.debug("Failed to extract authorities from token: {}", e.getMessage());
+            log.debug("JWT filter error: {}", e.getMessage());
+        } finally {
+            chain.doFilter(request, response);
+            TenantContext.clear();
         }
-        
-        if (authorities.isEmpty()) {
-            authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
-        }
-        
-        return authorities;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> extractAuthorities(Claims claims) {
+        Object val = claims.get("authorities");
+        if (val instanceof List) return (List<String>) val;
+        return Collections.singletonList("ROLE_USER");
+    }
+
+    private String extractJwt(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        return (header != null && header.startsWith("Bearer ")) ? header.substring(7) : null;
     }
 }

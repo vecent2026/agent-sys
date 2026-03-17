@@ -173,7 +173,7 @@ public class CustomNumberFieldHandler extends CustomFieldHandlerBase {
      * 大于筛选
      */
     private void applyGreaterThanFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, BigDecimal value) {
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND CAST(fv.field_value AS DECIMAL(20,6)) > " + value;
         wrapper.exists(existsSql);
@@ -184,7 +184,7 @@ public class CustomNumberFieldHandler extends CustomFieldHandlerBase {
      * 大于等于筛选
      */
     private void applyGreaterEqualFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, BigDecimal value) {
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND CAST(fv.field_value AS DECIMAL(20,6)) >= " + value;
         wrapper.exists(existsSql);
@@ -195,7 +195,7 @@ public class CustomNumberFieldHandler extends CustomFieldHandlerBase {
      * 小于筛选
      */
     private void applyLessThanFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, BigDecimal value) {
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND CAST(fv.field_value AS DECIMAL(20,6)) < " + value;
         wrapper.exists(existsSql);
@@ -206,7 +206,7 @@ public class CustomNumberFieldHandler extends CustomFieldHandlerBase {
      * 小于等于筛选
      */
     private void applyLessEqualFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, BigDecimal value) {
-        String existsSql = "SELECT 1 FROM app_user_field_value fv " +
+        String existsSql = "SELECT 1 FROM tenant_field_value fv " +
                           "WHERE fv.user_id = app_user.id AND fv.field_id = " + fieldId + 
                           " AND CAST(fv.field_value AS DECIMAL(20,6)) <= " + value;
         wrapper.exists(existsSql);
@@ -218,7 +218,7 @@ public class CustomNumberFieldHandler extends CustomFieldHandlerBase {
      */
     private void applyBetweenFilter(LambdaQueryWrapper<AppUser> wrapper, Long fieldId, NumberRange range) {
         StringBuilder sqlBuilder = new StringBuilder();
-        sqlBuilder.append("SELECT 1 FROM app_user_field_value fv ")
+        sqlBuilder.append("SELECT 1 FROM tenant_field_value fv ")
                  .append("WHERE fv.user_id = app_user.id AND fv.field_id = ").append(fieldId);
 
         if (range.getMin() != null && range.getMax() != null) {

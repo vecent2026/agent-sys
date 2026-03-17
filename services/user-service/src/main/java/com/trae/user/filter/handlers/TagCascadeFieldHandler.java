@@ -187,7 +187,7 @@ public class TagCascadeFieldHandler implements FieldFilterHandler {
         String tagIdStr = tagIds.stream().map(String::valueOf).collect(Collectors.joining(","));
         
         // 使用EXISTS子查询，性能优于IN查询
-        String existsSql = "SELECT 1 FROM app_user_tag_relation r " +
+        String existsSql = "SELECT 1 FROM tenant_user_tag r " +
                           "WHERE r.user_id = app_user.id AND r.tag_id IN (" + tagIdStr + ")";
         
         wrapper.exists(existsSql);
@@ -209,7 +209,7 @@ public class TagCascadeFieldHandler implements FieldFilterHandler {
         String tagIdStr = tagIds.stream().map(String::valueOf).collect(Collectors.joining(","));
         
         // 使用NOT EXISTS子查询
-        String notExistsSql = "SELECT 1 FROM app_user_tag_relation r " +
+        String notExistsSql = "SELECT 1 FROM tenant_user_tag r " +
                              "WHERE r.user_id = app_user.id AND r.tag_id IN (" + tagIdStr + ")";
         
         wrapper.notExists(notExistsSql);
@@ -221,7 +221,7 @@ public class TagCascadeFieldHandler implements FieldFilterHandler {
      * 应用为空筛选（用户没有任何标签）
      */
     private void applyIsEmptyFilter(LambdaQueryWrapper<AppUser> wrapper) {
-        String notExistsSql = "SELECT 1 FROM app_user_tag_relation r WHERE r.user_id = app_user.id";
+        String notExistsSql = "SELECT 1 FROM tenant_user_tag r WHERE r.user_id = app_user.id";
         wrapper.notExists(notExistsSql);
         
         log.debug("Applied tag IS_EMPTY filter");
@@ -231,7 +231,7 @@ public class TagCascadeFieldHandler implements FieldFilterHandler {
      * 应用不为空筛选（用户有至少一个标签）
      */
     private void applyIsNotEmptyFilter(LambdaQueryWrapper<AppUser> wrapper) {
-        String existsSql = "SELECT 1 FROM app_user_tag_relation r WHERE r.user_id = app_user.id";
+        String existsSql = "SELECT 1 FROM tenant_user_tag r WHERE r.user_id = app_user.id";
         wrapper.exists(existsSql);
         
         log.debug("Applied tag IS_NOT_EMPTY filter");
