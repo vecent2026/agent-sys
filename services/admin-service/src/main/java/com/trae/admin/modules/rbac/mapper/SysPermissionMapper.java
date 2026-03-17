@@ -22,4 +22,10 @@ public interface SysPermissionMapper extends BaseMapper<SysPermission> {
             "INNER JOIN platform_user_role ur ON rp.role_id = ur.role_id " +
             "WHERE ur.user_id = #{userId} AND p.is_deleted = 0")
     List<SysPermission> selectPermissionsByUserId(@Param("userId") Long userId);
+
+    /**
+     * 查询所有平台权限（超级管理员使用）
+     */
+    @Select("SELECT * FROM platform_permission WHERE is_deleted = 0")
+    List<SysPermission> selectAllPermissions();
 }

@@ -16,10 +16,14 @@ logs/
 .cursor/
 .trae/
 .codex/
+.claude/
 
 # 操作系统文件
 .DS_Store
 Thumbs.db
+
+# AI 助手特定文件
+CLAUDE.md
 
 # 环境变量文件（包含敏感信息）
 .env.local
