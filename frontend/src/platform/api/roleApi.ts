@@ -17,25 +17,25 @@ export interface RoleDto {
 }
 
 export const getRolePage = (params: { page?: number; size?: number; roleName?: string }) =>
-  platformRequest.get<any>('/api/tenant/roles', { params });
+  platformRequest.get<any>('/api/platform/roles', { params });
 
 export const getRoleList = () =>
-  platformRequest.get<RoleVo[]>('/api/tenant/roles/all');
+  platformRequest.get<RoleVo[]>('/api/platform/roles/all');
 
 export const getRole = (id: number) =>
-  platformRequest.get<RoleVo>(`/api/tenant/roles/${id}`);
+  platformRequest.get<RoleVo>(`/api/platform/roles/${id}`);
 
 export const getRolePermissions = (id: number) =>
-  platformRequest.get<number[]>(`/api/tenant/roles/${id}/permissions`);
+  platformRequest.get<number[]>(`/api/platform/roles/${id}/permissions`);
 
 export const assignRolePermissions = (id: number, permissionIds: number[]) =>
-  platformRequest.post(`/api/tenant/roles/${id}/permissions`, { permissionIds });
+  platformRequest.put(`/api/platform/roles/${id}/permissions`, { permissionIds });
 
 export const createRole = (data: RoleDto) =>
-  platformRequest.post('/api/tenant/roles', data);
+  platformRequest.post('/api/platform/roles', data);
 
 export const updateRole = (id: number, data: RoleDto) =>
-  platformRequest.put(`/api/tenant/roles/${id}`, data);
+  platformRequest.put(`/api/platform/roles/${id}`, data);
 
 export const deleteRoles = (ids: number[]) =>
-  platformRequest.delete(`/api/tenant/roles/${ids.join(',')}`);
+  platformRequest.delete(`/api/platform/roles/${ids.join(',')}`);

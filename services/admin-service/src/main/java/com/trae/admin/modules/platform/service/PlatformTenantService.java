@@ -22,4 +22,8 @@ public interface PlatformTenantService {
     void changeStatus(Long id, Integer status);
 
     List<TenantVo> listAll();
+
+    List<Long> getPermissionIds(Long tenantId);
+
+    void updatePermissions(Long tenantId, List<Long> permissionIds);
 }

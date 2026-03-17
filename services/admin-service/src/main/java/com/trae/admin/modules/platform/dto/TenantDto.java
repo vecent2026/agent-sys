@@ -22,6 +22,18 @@ public class TenantDto {
     @Size(max = 128, message = "租户名称不超过128个字符")
     private String tenantName;
 
+    @Size(max = 500, message = "描述不超过500个字符")
+    private String description;
+
+    @Size(max = 64, message = "联系人姓名不超过64个字符")
+    private String contactName;
+
+    @Size(max = 32, message = "联系电话不超过32个字符")
+    private String contactPhone;
+
+    @Size(max = 128, message = "联系邮箱不超过128个字符")
+    private String contactEmail;
+
     private Integer status;
 
     private LocalDateTime expireTime;

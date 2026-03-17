@@ -4,7 +4,6 @@ import {
   InputNumber, Switch, message, Popconfirm, Card, TreeSelect,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import {
   getPermissionTree, createPermission, updatePermission, deletePermission,
@@ -24,14 +23,6 @@ const buildTreeSelectData = (nodes: PermissionVo[]): any[] =>
     children: n.children ? buildTreeSelectData(n.children) : undefined,
   }));
 
-const flattenTree = (nodes: PermissionVo[]): PermissionVo[] => {
-  const result: PermissionVo[] = [];
-  const walk = (list: PermissionVo[]) => {
-    list.forEach(n => { result.push(n); if (n.children) walk(n.children); });
-  };
-  walk(nodes);
-  return result;
-};
 
 const PermissionPage: React.FC = () => {
   const [loading, setLoading] = useState(false);

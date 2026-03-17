@@ -1,225 +1,186 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Table, Button, Space, Modal, Form, Input, Textarea,
-  message, Popconfirm, Card, Tree, Spin,
+  Card,
+  Table,
+  Button,
+  Space,
+  message,
+  Popconfirm,
+  Form,
+  Input,
+  Tooltip,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SafetyOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
-import type { DataNode } from 'antd/es/tree';
-import {
-  getRolePage, createRole, updateRole, deleteRoles,
-  getRolePermissions, assignRolePermissions, type RoleVo, type RoleDto,
-} from '../../api/roleApi';
-import { getPermissionTree, type PermissionVo } from '../../api/permissionApi';
+import { PlusOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getRolePage, deleteRoles, type RoleVo } from '../../api/roleApi';
+import PlatformRoleFormDrawer from './components/PlatformRoleFormDrawer';
+import RolePermissionDrawer from './components/RolePermissionDrawer';
 
-const buildTreeNodes = (nodes: PermissionVo[]): DataNode[] =>
-  nodes.map(n => ({
-    key: n.id,
-    title: `${n.name}${n.permissionKey ? ` [${n.permissionKey}]` : ''}`,
-    children: n.children ? buildTreeNodes(n.children) : undefined,
-  }));
-
-const collectAllKeys = (nodes: PermissionVo[]): number[] => {
-  const keys: number[] = [];
-  const walk = (list: PermissionVo[]) => {
-    list.forEach(n => {
-      keys.push(n.id);
-      if (n.children) walk(n.children);
-    });
-  };
-  walk(nodes);
-  return keys;
-};
-
-const RolePage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<RoleVo[]>([]);
-  const [total, setTotal] = useState(0);
-  const [pagination, setPagination] = useState({ page: 1, size: 10 });
-  const [roleName, setRoleName] = useState('');
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<RoleVo | null>(null);
-  const [saving, setSaving] = useState(false);
+const PlatformRolesPage: React.FC = () => {
+  const queryClient = useQueryClient();
   const [form] = Form.useForm();
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(20);
+  const [keyword, setKeyword] = useState<string | undefined>();
+  const [formDrawerOpen, setFormDrawerOpen] = useState(false);
+  const [permDrawerOpen, setPermDrawerOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<RoleVo | null>(null);
+  const [permRole, setPermRole] = useState<{ id: number; name: string } | null>(null);
 
-  // 权限分配弹窗
-  const [permModal, setPermModal] = useState<{ open: boolean; roleId?: number }>({ open: false });
-  const [permTree, setPermTree] = useState<DataNode[]>([]);
-  const [permTreeRaw, setPermTreeRaw] = useState<PermissionVo[]>([]);
-  const [checkedKeys, setCheckedKeys] = useState<number[]>([]);
-  const [permLoading, setPermLoading] = useState(false);
+  const queryParams = useMemo(() => ({ page, size, roleName: keyword }), [page, size, keyword]);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getRolePage({ page: pagination.page, size: pagination.size, roleName });
-      setData(res.records || []);
-      setTotal(res.total || 0);
-    } finally {
-      setLoading(false);
-    }
-  }, [pagination, roleName]);
+  const { data, isLoading } = useQuery({
+    queryKey: ['platform-roles', queryParams],
+    queryFn: () => getRolePage(queryParams),
+  });
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const deleteMutation = useMutation({
+    mutationFn: (ids: number[]) => deleteRoles(ids),
+    onSuccess: () => {
+      message.success('删除成功');
+      queryClient.invalidateQueries({ queryKey: ['platform-roles'] });
+    },
+    onError: (err: any) => {
+      message.error(err?.message || '删除失败');
+    },
+  });
 
-  const openCreate = () => {
-    setEditing(null);
-    form.resetFields();
-    setModalOpen(true);
-  };
-
-  const openEdit = (record: RoleVo) => {
-    setEditing(record);
-    form.setFieldsValue(record);
-    setModalOpen(true);
-  };
-
-  const handleSave = async () => {
-    const values = await form.validateFields();
-    setSaving(true);
-    try {
-      const dto: RoleDto = values;
-      if (editing) {
-        await updateRole(editing.id, dto);
-        message.success('修改成功');
-      } else {
-        await createRole(dto);
-        message.success('创建成功');
-      }
-      setModalOpen(false);
-      fetchData();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    await deleteRoles([id]);
-    message.success('删除成功');
-    fetchData();
-  };
-
-  const openPermModal = async (roleId: number) => {
-    setPermModal({ open: true, roleId });
-    setPermLoading(true);
-    try {
-      const [tree, permIds] = await Promise.all([
-        getPermissionTree(),
-        getRolePermissions(roleId),
-      ]);
-      setPermTreeRaw(tree);
-      setPermTree(buildTreeNodes(tree));
-      setCheckedKeys(permIds);
-    } finally {
-      setPermLoading(false);
-    }
-  };
-
-  const handleAssignPerms = async () => {
-    await assignRolePermissions(permModal.roleId!, checkedKeys);
-    message.success('权限分配成功');
-    setPermModal({ open: false });
+  const handleFilterChange = (_: any, all: any) => {
+    setKeyword(all.roleName || undefined);
+    setPage(1);
   };
 
   const columns: ColumnsType<RoleVo> = [
-    { title: '角色名称', dataIndex: 'roleName', width: 160 },
-    { title: '角色标识', dataIndex: 'roleKey', width: 180 },
-    { title: '描述', dataIndex: 'description', ellipsis: true },
-    { title: '用户数', dataIndex: 'userCount', width: 80 },
+    { title: '角色名称', dataIndex: 'roleName', width: 160, ellipsis: true },
+    { title: '角色标识', dataIndex: 'roleKey', width: 180, ellipsis: true },
     {
-      title: '创建时间', dataIndex: 'createTime', width: 160,
-      render: (val) => val ? dayjs(val).format('YYYY-MM-DD HH:mm') : '-',
+      title: '描述',
+      dataIndex: 'description',
+      width: 220,
+      ellipsis: true,
+      render: (v) => v || '-',
+    },
+    { title: '用户数', dataIndex: 'userCount', width: 90, render: (v) => v ?? 0 },
+    {
+      title: '创建时间',
+      dataIndex: 'createTime',
+      width: 160,
+      render: (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-'),
     },
     {
-      title: '操作', width: 200, fixed: 'right',
-      render: (_, record) => (
-        <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>编辑</Button>
-          <Button type="link" size="small" icon={<SafetyOutlined />} onClick={() => openPermModal(record.id)}>分配权限</Button>
-          <Popconfirm title="确定删除该角色？" onConfirm={() => handleDelete(record.id)}>
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>删除</Button>
-          </Popconfirm>
-        </Space>
-      ),
+      title: '操作',
+      key: 'action',
+      fixed: 'right',
+      width: 220,
+      render: (_, record) => {
+        const canDelete = !record.userCount || record.userCount === 0;
+        return (
+          <Space size={4}>
+            <Button
+              type="link"
+              size="small"
+              onClick={() => {
+                setEditingRole(record);
+                setFormDrawerOpen(true);
+              }}
+            >
+              编辑
+            </Button>
+            <Button
+              type="link"
+              size="small"
+              onClick={() => {
+                setPermRole({ id: record.id, name: record.roleName });
+                setPermDrawerOpen(true);
+              }}
+            >
+              配置权限
+            </Button>
+            {canDelete ? (
+              <Popconfirm
+                title="确定删除该角色？"
+                onConfirm={() => deleteMutation.mutate([record.id])}
+              >
+                <Button type="link" size="small" danger>
+                  删除
+                </Button>
+              </Popconfirm>
+            ) : (
+              <Tooltip title={`该角色已有 ${record.userCount} 名用户，无法删除`}>
+                <Button type="link" size="small" danger disabled>
+                  删除
+                </Button>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
   return (
-    <div>
-      <Card
-        title="平台角色"
-        extra={
-          <Space>
-            <Input.Search
-              placeholder="角色名称"
-              allowClear
-              style={{ width: 200 }}
-              onSearch={(v) => { setRoleName(v); setPagination(p => ({ ...p, page: 1 })); }}
-            />
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增角色</Button>
-          </Space>
-        }
-      >
-        <Table
-          rowKey="id"
-          loading={loading}
-          columns={columns}
-          dataSource={data}
-          scroll={{ x: 900 }}
-          pagination={{
-            current: pagination.page, pageSize: pagination.size, total,
-            showSizeChanger: true, showTotal: (t) => `共 ${t} 条`,
-            onChange: (page, size) => setPagination({ page, size }),
-          }}
-        />
-      </Card>
-
-      <Modal
-        title={editing ? '编辑角色' : '新增角色'}
-        open={modalOpen}
-        onOk={handleSave}
-        onCancel={() => setModalOpen(false)}
-        confirmLoading={saving}
-        destroyOnClose
-      >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="roleName" label="角色名称" rules={[{ required: true, message: '请输入角色名称' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="roleKey" label="角色标识" rules={[{ required: true, message: '请输入角色标识' }]}>
-            <Input placeholder="如 platform:admin" disabled={!!editing} />
-          </Form.Item>
-          <Form.Item name="description" label="描述">
-            <Input.TextArea rows={3} />
+    <Card title="平台角色" bodyStyle={{ padding: 0 }}>
+      <div style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <Form form={form} layout="inline" onValuesChange={handleFilterChange}>
+          <Form.Item name="roleName">
+            <Input placeholder="角色名称" allowClear style={{ width: 180 }} />
           </Form.Item>
         </Form>
-      </Modal>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => {
+            setEditingRole(null);
+            setFormDrawerOpen(true);
+          }}
+        >
+          新增角色
+        </Button>
+      </div>
 
-      <Modal
-        title="分配权限"
-        open={permModal.open}
-        onOk={handleAssignPerms}
-        onCancel={() => setPermModal({ open: false })}
-        width={520}
-        destroyOnClose
-      >
-        {permLoading ? (
-          <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
-        ) : (
-          <Tree
-            checkable
-            defaultExpandAll
-            treeData={permTree}
-            checkedKeys={checkedKeys}
-            onCheck={(keys) => setCheckedKeys((keys as number[]))}
-            style={{ maxHeight: 400, overflowY: 'auto', marginTop: 8 }}
-          />
-        )}
-      </Modal>
-    </div>
+      <Table<RoleVo>
+        rowKey="id"
+        loading={isLoading}
+        columns={columns}
+        dataSource={(data as any)?.records || []}
+        scroll={{ x: 1000, y: 'calc(100vh - 320px)' }}
+        pagination={{
+          size: 'small',
+          current: page,
+          pageSize: size,
+          total: (data as any)?.total ?? 0,
+          showSizeChanger: true,
+          pageSizeOptions: [20, 50, 100],
+          showTotal: (t) => `共 ${t} 条`,
+          onChange: (p, s) => {
+            setPage(p);
+            setSize(s || size);
+          },
+        }}
+      />
+
+      <PlatformRoleFormDrawer
+        open={formDrawerOpen}
+        onClose={() => {
+          setFormDrawerOpen(false);
+          setEditingRole(null);
+        }}
+        editing={editingRole}
+      />
+
+      <RolePermissionDrawer
+        open={permDrawerOpen}
+        onClose={() => {
+          setPermDrawerOpen(false);
+          setPermRole(null);
+        }}
+        roleId={permRole?.id ?? null}
+        roleName={permRole?.name}
+      />
+    </Card>
   );
 };
 
-export default RolePage;
+export default PlatformRolesPage;

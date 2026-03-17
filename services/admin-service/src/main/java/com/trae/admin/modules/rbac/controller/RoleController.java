@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
  */
 @Tag(name = "角色模块", description = "角色信息管理、权限分配")
 @RestController
-@RequestMapping("/api/tenant/roles")
+@RequestMapping("/api/platform/roles")
 @RequiredArgsConstructor
 public class RoleController {
 
@@ -109,8 +109,8 @@ public class RoleController {
                     @ApiResponse(responseCode = "403", description = "权限不足")
             }
     )
-    @PostMapping("/{id}/permissions")
-    @PreAuthorize("hasAuthority('role:assign')")
+    @RequestMapping(value = "/{id}/permissions", method = {RequestMethod.POST, RequestMethod.PUT})
+    @PreAuthorize("hasAuthority('platform:role:edit')")
     @Log(module = "角色管理", action = "分配权限")
     public Result<Void> assignRolePermissions(@PathVariable Long id, @RequestBody Map<String, List<Long>> requestBody) {
         // Call the new assignPermissions method for permission assignment

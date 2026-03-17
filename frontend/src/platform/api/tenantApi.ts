@@ -4,6 +4,10 @@ export interface TenantVo {
   id: number;
   tenantCode: string;
   tenantName: string;
+  description?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
   status: number;
   expireTime?: string;
   maxUsers?: number;
@@ -24,9 +28,14 @@ export interface TenantDto {
   id?: number;
   tenantCode: string;
   tenantName: string;
+  description?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
   status?: number;
   expireTime?: string;
   maxUsers?: number;
+  adminUser?: { mobile: string; nickname?: string };
 }
 
 export const getTenantPage = (params: TenantQueryParams) =>
@@ -49,3 +58,9 @@ export const deleteTenant = (id: number) =>
 
 export const changeTenantStatus = (id: number, status: number) =>
   platformRequest.put(`/api/platform/tenants/${id}/status`, { status });
+
+export const getTenantPermissions = (id: number) =>
+  platformRequest.get<number[]>(`/api/platform/tenants/${id}/permissions`);
+
+export const updateTenantPermissions = (id: number, permissionIds: number[]) =>
+  platformRequest.put(`/api/platform/tenants/${id}/permissions`, { permissionIds });

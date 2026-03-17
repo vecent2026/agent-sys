@@ -81,4 +81,20 @@ public class PlatformTenantController {
         tenantService.changeStatus(id, Integer.valueOf(params.get("status").toString()));
         return Result.success();
     }
+
+    @Operation(summary = "获取租户权限ID列表")
+    @GetMapping("/{id}/permissions")
+    @PreAuthorize("hasAuthority('platform:tenant:query')")
+    public Result<List<Long>> getPermissions(@PathVariable Long id) {
+        return Result.success(tenantService.getPermissionIds(id));
+    }
+
+    @Operation(summary = "设置租户权限")
+    @PutMapping("/{id}/permissions")
+    @PreAuthorize("hasAuthority('platform:tenant:edit')")
+    @Log(module = "租户管理", action = "设置权限")
+    public Result<Void> updatePermissions(@PathVariable Long id, @RequestBody Map<String, List<Long>> body) {
+        tenantService.updatePermissions(id, body.getOrDefault("permissionIds", List.of()));
+        return Result.success();
+    }
 }

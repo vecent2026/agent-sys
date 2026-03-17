@@ -57,4 +57,9 @@ public class SysPermission extends BaseEntity {
      * 排序号
      */
     private Integer sort;
+
+    /**
+     * 作用域: platform=平台专属; tenant=可授权给租户
+     */
+    private String scope;
 }

@@ -10,6 +10,7 @@ export interface PermissionVo {
   component?: string;
   sort: number;
   logEnabled: boolean;
+  scope?: string; // 'platform' | 'tenant'
   createTime: string;
   children?: PermissionVo[];
 }

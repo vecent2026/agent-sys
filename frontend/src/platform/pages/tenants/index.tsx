@@ -1,260 +1,232 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Table, Button, Space, Tag, Switch, Modal, Form, Input,
-  InputNumber, DatePicker, message, Popconfirm, Card, Row, Col, Select,
+  Card,
+  Table,
+  Button,
+  Space,
+  Tag,
+  Switch,
+  message,
+  Popconfirm,
+  Form,
+  Input,
+  Select,
+  Modal,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
+import { PlusOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  getTenantPage, createTenant, updateTenant, deleteTenant, changeTenantStatus,
-  type TenantVo, type TenantDto,
+  getTenantPage,
+  deleteTenant,
+  changeTenantStatus,
+  type TenantVo,
+  type TenantQueryParams,
 } from '../../api/tenantApi';
-
-const TENANT_CODE_PATTERN = /^[a-z0-9_-]{2,64}$/;
+import TenantFormDrawer from './components/TenantFormDrawer';
+import TenantPermissionDrawer from './components/TenantPermissionDrawer';
 
 const TenantPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<TenantVo[]>([]);
-  const [total, setTotal] = useState(0);
-  const [pagination, setPagination] = useState({ page: 1, size: 10 });
-  const [query, setQuery] = useState<{ tenantName?: string; tenantCode?: string; status?: number }>({});
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<TenantVo | null>(null);
-  const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
   const [form] = Form.useForm();
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(20);
+  const [keyword, setKeyword] = useState<string | undefined>();
+  const [status, setStatus] = useState<number | undefined>();
+  const [formDrawerOpen, setFormDrawerOpen] = useState(false);
+  const [permDrawerOpen, setPermDrawerOpen] = useState(false);
+  const [editingTenant, setEditingTenant] = useState<TenantVo | null>(null);
+  const [permTenant, setPermTenant] = useState<{ id: number; name: string } | null>(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getTenantPage({ ...pagination, ...query });
-      setData(res.records || []);
-      setTotal(res.total || 0);
-    } finally {
-      setLoading(false);
+  const queryParams: TenantQueryParams = useMemo(
+    () => ({ page, size, tenantName: keyword, status }),
+    [page, size, keyword, status]
+  );
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['platform-tenants', queryParams],
+    queryFn: () => getTenantPage(queryParams),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteTenant,
+    onSuccess: () => {
+      message.success('删除成功');
+      queryClient.invalidateQueries({ queryKey: ['platform-tenants'] });
+    },
+    onError: (err: any) => {
+      message.error(err?.message || '删除失败');
+    },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, s }: { id: number; s: number }) => changeTenantStatus(id, s),
+    onSuccess: () => {
+      message.success('状态已更新');
+      queryClient.invalidateQueries({ queryKey: ['platform-tenants'] });
+    },
+  });
+
+  const handleFilterChange = (_: any, all: any) => {
+    setKeyword(all.keyword || undefined);
+    setStatus(all.status ?? undefined);
+    setPage(1);
+  };
+
+  const handleStatusChange = (record: TenantVo, checked: boolean) => {
+    if (!checked) {
+      Modal.confirm({
+        title: '确认禁用',
+        content: `禁用租户「${record.tenantName}」后，该租户下所有在线用户将立即下线。确定继续？`,
+        okType: 'danger',
+        onOk: () => statusMutation.mutate({ id: record.id, s: 0 }),
+      });
+    } else {
+      statusMutation.mutate({ id: record.id, s: 1 });
     }
-  }, [pagination, query]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const openCreate = () => {
-    setEditing(null);
-    form.resetFields();
-    form.setFieldsValue({ status: 1, maxUsers: 100 });
-    setModalOpen(true);
-  };
-
-  const openEdit = (record: TenantVo) => {
-    setEditing(record);
-    form.setFieldsValue({
-      ...record,
-      expireTime: record.expireTime ? dayjs(record.expireTime) : null,
-    });
-    setModalOpen(true);
-  };
-
-  const handleSave = async () => {
-    const values = await form.validateFields();
-    setSaving(true);
-    try {
-      const dto: TenantDto = {
-        ...values,
-        // 使用本地时间格式，避免带时区后缀导致 Jackson 解析 LocalDateTime 失败
-        expireTime: values.expireTime ? values.expireTime.format('YYYY-MM-DDTHH:mm:ss') : undefined,
-      };
-      if (editing) {
-        await updateTenant(editing.id, dto);
-        message.success('修改成功');
-      } else {
-        await createTenant(dto);
-        message.success('创建成功');
-      }
-      setModalOpen(false);
-      fetchData();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    await deleteTenant(id);
-    message.success('删除成功');
-    fetchData();
-  };
-
-  const handleStatusChange = async (id: number, checked: boolean) => {
-    await changeTenantStatus(id, checked ? 1 : 0);
-    message.success('状态已更新');
-    fetchData();
-  };
-
-  const [queryForm] = Form.useForm();
-  const handleSearch = () => {
-    const values = queryForm.getFieldsValue();
-    setQuery(values);
-    setPagination(p => ({ ...p, page: 1 }));
-  };
-  const handleReset = () => {
-    queryForm.resetFields();
-    setQuery({});
-    setPagination(p => ({ ...p, page: 1 }));
   };
 
   const columns: ColumnsType<TenantVo> = [
-    { title: '租户编码', dataIndex: 'tenantCode', width: 140 },
-    { title: '租户名称', dataIndex: 'tenantName', width: 180 },
+    { title: '租户编码', dataIndex: 'tenantCode', width: 140, ellipsis: true },
+    { title: '租户名称', dataIndex: 'tenantName', width: 160, ellipsis: true },
+    { title: '联系人', dataIndex: 'contactName', width: 100, render: (v) => v || '-' },
     {
-      title: '状态', dataIndex: 'status', width: 80,
+      title: '状态',
+      dataIndex: 'status',
+      width: 80,
       render: (val, record) => (
         <Switch
           checked={val === 1}
           size="small"
-          onChange={(checked) => handleStatusChange(record.id, checked)}
+          onChange={(checked) => handleStatusChange(record, checked)}
+          loading={statusMutation.isPending}
         />
       ),
     },
     {
-      title: '到期时间', dataIndex: 'expireTime', width: 160,
-      render: (val) => val ? dayjs(val).format('YYYY-MM-DD HH:mm') : <Tag color="green">永不过期</Tag>,
+      title: '到期时间',
+      dataIndex: 'expireTime',
+      width: 160,
+      render: (val) =>
+        val ? dayjs(val).format('YYYY-MM-DD HH:mm') : <Tag color="green">永不过期</Tag>,
     },
-    { title: '最大用户数', dataIndex: 'maxUsers', width: 100 },
+    { title: '最大用户数', dataIndex: 'maxUsers', width: 100, render: (v) => v ?? '不限' },
     {
-      title: '创建时间', dataIndex: 'createTime', width: 160,
-      render: (val) => dayjs(val).format('YYYY-MM-DD HH:mm'),
+      title: '创建时间',
+      dataIndex: 'createTime',
+      width: 160,
+      render: (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-'),
     },
     {
-      title: '操作', width: 120, fixed: 'right',
+      title: '操作',
+      key: 'action',
+      fixed: 'right',
+      width: 200,
       render: (_, record) => (
-        <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>编辑</Button>
-          <Popconfirm title="确定删除该租户？" onConfirm={() => handleDelete(record.id)}>
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>删除</Button>
+        <Space size={4}>
+          <Button
+            type="link"
+            size="small"
+            onClick={() => {
+              setEditingTenant(record);
+              setFormDrawerOpen(true);
+            }}
+          >
+            编辑
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            onClick={() => {
+              setPermTenant({ id: record.id, name: record.tenantName });
+              setPermDrawerOpen(true);
+            }}
+          >
+            配置权限
+          </Button>
+          <Popconfirm
+            title="确定删除该租户？此操作不可恢复"
+            onConfirm={() => deleteMutation.mutate(record.id)}
+          >
+            <Button type="link" size="small" danger>
+              删除
+            </Button>
           </Popconfirm>
         </Space>
       ),
     },
   ];
 
+  const records = (data as any)?.records || [];
+  const total = (data as any)?.total ?? 0;
+
   return (
-    <div>
-      <Card size="small" style={{ marginBottom: 12 }}>
-        <Form form={queryForm} layout="inline">
-          <Form.Item name="tenantName" label="租户名称">
-            <Input placeholder="请输入" allowClear style={{ width: 160 }} />
+    <Card title="租户管理" bodyStyle={{ padding: 0 }}>
+      <div style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <Form form={form} layout="inline" onValuesChange={handleFilterChange}>
+          <Form.Item name="keyword">
+            <Input placeholder="租户名称/编码" allowClear style={{ width: 180 }} />
           </Form.Item>
-          <Form.Item name="tenantCode" label="租户编码">
-            <Input placeholder="请输入" allowClear style={{ width: 140 }} />
-          </Form.Item>
-          <Form.Item name="status" label="状态">
-            <Select placeholder="全部" allowClear style={{ width: 100 }}>
+          <Form.Item name="status">
+            <Select placeholder="全部状态" allowClear style={{ width: 120 }}>
               <Select.Option value={1}>启用</Select.Option>
               <Select.Option value={0}>禁用</Select.Option>
             </Select>
           </Form.Item>
-          <Form.Item>
-            <Space>
-              <Button type="primary" onClick={handleSearch}>查询</Button>
-              <Button onClick={handleReset}>重置</Button>
-            </Space>
-          </Form.Item>
         </Form>
-      </Card>
-
-      <Card
-        title="租户列表"
-        extra={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增租户</Button>}
-      >
-        <Table
-          rowKey="id"
-          loading={loading}
-          columns={columns}
-          dataSource={data}
-          scroll={{ x: 900 }}
-          pagination={{
-            current: pagination.page,
-            pageSize: pagination.size,
-            total,
-            showSizeChanger: true,
-            showTotal: (t) => `共 ${t} 条`,
-            onChange: (page, size) => setPagination({ page, size }),
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => {
+            setEditingTenant(null);
+            setFormDrawerOpen(true);
           }}
-        />
-      </Card>
+        >
+          新增租户
+        </Button>
+      </div>
 
-      <Modal
-        title={editing ? '编辑租户' : '新增租户'}
-        open={modalOpen}
-        onOk={handleSave}
-        onCancel={() => setModalOpen(false)}
-        confirmLoading={saving}
-        width={520}
-        destroyOnClose
-      >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="tenantCode"
-                label="租户编码"
-                rules={[
-                  { required: true, message: '请输入租户编码' },
-                  { max: 64, message: '不超过64个字符' },
-                  {
-                    pattern: TENANT_CODE_PATTERN,
-                    message: '仅允许小写字母、数字、下划线、连字符，长度2-64',
-                  },
-                ]}
-              >
-                <Input placeholder="如：my-tenant（小写字母/数字/-/_）" disabled={!!editing} maxLength={64} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="tenantName"
-                label="租户名称"
-                rules={[
-                  { required: true, message: '请输入租户名称' },
-                  { max: 128, message: '不超过128个字符' },
-                  { whitespace: true, message: '名称不能为空白字符' },
-                ]}
-              >
-                <Input placeholder="显示名称" maxLength={128} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="status" label="状态" initialValue={1}>
-                <Select>
-                  <Select.Option value={1}>启用</Select.Option>
-                  <Select.Option value={0}>禁用</Select.Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="maxUsers"
-                label="最大用户数"
-                rules={[{ required: true, message: '请填写最大用户数' }]}
-              >
-                <InputNumber min={1} max={100000} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item
-            name="expireTime"
-            label="到期时间（不填表示永不过期）"
-          >
-            <DatePicker
-              showTime
-              style={{ width: '100%' }}
-              disabledDate={(d) => d && d.isBefore(dayjs(), 'day')}
-              placeholder="留空表示永不过期"
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </div>
+      <Table<TenantVo>
+        rowKey="id"
+        loading={isLoading}
+        columns={columns}
+        dataSource={records}
+        scroll={{ x: 1100, y: 'calc(100vh - 320px)' }}
+        pagination={{
+          size: 'small',
+          current: page,
+          pageSize: size,
+          total,
+          showSizeChanger: true,
+          pageSizeOptions: [20, 50, 100],
+          showTotal: (t) => `共 ${t} 条`,
+          onChange: (p, s) => {
+            setPage(p);
+            setSize(s || size);
+          },
+        }}
+      />
+
+      <TenantFormDrawer
+        open={formDrawerOpen}
+        onClose={() => {
+          setFormDrawerOpen(false);
+          setEditingTenant(null);
+        }}
+        editing={editingTenant}
+      />
+
+      <TenantPermissionDrawer
+        open={permDrawerOpen}
+        onClose={() => {
+          setPermDrawerOpen(false);
+          setPermTenant(null);
+        }}
+        tenantId={permTenant?.id ?? null}
+        tenantName={permTenant?.name}
+      />
+    </Card>
   );
 };
 

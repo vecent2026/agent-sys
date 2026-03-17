@@ -9,6 +9,8 @@ import com.trae.admin.modules.platform.entity.PlatformTenant;
 import com.trae.admin.modules.platform.mapper.PlatformTenantMapper;
 import com.trae.admin.modules.platform.service.PlatformTenantService;
 import com.trae.admin.modules.platform.vo.TenantVo;
+import com.trae.admin.modules.tenant.entity.TenantPermission;
+import com.trae.admin.modules.tenant.mapper.TenantPermissionMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 public class PlatformTenantServiceImpl implements PlatformTenantService {
 
     private final PlatformTenantMapper tenantMapper;
+    private final TenantPermissionMapper tenantPermissionMapper;
 
     @Override
     public Page<TenantVo> page(TenantQueryDto query) {
@@ -114,6 +117,29 @@ public class PlatformTenantServiceImpl implements PlatformTenantService {
                         .eq(PlatformTenant::getStatus, 1)
                         .orderByAsc(PlatformTenant::getTenantName))
                 .stream().map(this::toVo).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Long> getPermissionIds(Long tenantId) {
+        return tenantPermissionMapper.selectPermissionIdsByTenantId(tenantId);
+    }
+
+    @Override
+    @Transactional
+    public void updatePermissions(Long tenantId, List<Long> permissionIds) {
+        // 删除旧授权
+        tenantPermissionMapper.delete(new LambdaQueryWrapper<TenantPermission>()
+                .eq(TenantPermission::getTenantId, tenantId));
+        // 插入新授权
+        if (permissionIds != null && !permissionIds.isEmpty()) {
+            permissionIds.forEach(permId -> {
+                TenantPermission tp = new TenantPermission();
+                tp.setTenantId(tenantId);
+                tp.setPermissionId(permId);
+                tp.setCreateTime(LocalDateTime.now());
+                tenantPermissionMapper.insert(tp);
+            });
+        }
     }
 
     private TenantVo toVo(PlatformTenant t) {

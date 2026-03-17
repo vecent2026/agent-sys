@@ -20,6 +20,18 @@ public class PlatformTenant {
     private String tenantCode;
     private String tenantName;
 
+    /** 描述 */
+    private String description;
+
+    /** 联系人姓名 */
+    private String contactName;
+
+    /** 联系电话 */
+    private String contactPhone;
+
+    /** 联系邮箱 */
+    private String contactEmail;
+
     /** 状态: 1=启用 0=禁用 */
     private Integer status;
 
