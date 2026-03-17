@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Table, Button, Space, Tag, Switch, Modal, Form, Input,
-  message, Popconfirm, Card, Select, Transfer,
+  message, Popconfirm, Card, Select, Transfer, Tooltip,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, KeyOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -133,7 +133,15 @@ const UserPage: React.FC = () => {
   };
 
   const columns: ColumnsType<UserVo> = [
-    { title: '用户名', dataIndex: 'username', width: 130 },
+    {
+      title: '用户名', dataIndex: 'username', width: 150,
+      render: (val, record) => (
+        <Space size={6}>
+          {val}
+          {record.isSuper === 1 && <Tag color="red">超管</Tag>}
+        </Space>
+      ),
+    },
     { title: '昵称', dataIndex: 'nickname', width: 120 },
     { title: '手机号', dataIndex: 'mobile', width: 130 },
     {
@@ -143,7 +151,14 @@ const UserPage: React.FC = () => {
     {
       title: '状态', dataIndex: 'status', width: 80,
       render: (val, record) => (
-        <Switch checked={val === 1} size="small" onChange={(c) => handleStatusChange(record.id, c)} />
+        <Tooltip title={record.isSuper === 1 ? '超级管理员状态不可修改' : undefined}>
+          <Switch
+            checked={val === 1}
+            size="small"
+            disabled={record.isSuper === 1}
+            onChange={(c) => handleStatusChange(record.id, c)}
+          />
+        </Tooltip>
       ),
     },
     {
@@ -151,12 +166,18 @@ const UserPage: React.FC = () => {
       render: (val) => val ? dayjs(val).format('YYYY-MM-DD HH:mm') : '-',
     },
     {
-      title: '操作', width: 200, fixed: 'right',
+      title: '操作', width: 220, fixed: 'right',
       render: (_, record) => (
         <Space>
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>编辑</Button>
           <Button type="link" size="small" icon={<KeyOutlined />} onClick={() => openPwdModal(record.id)}>重置密码</Button>
-          <Button type="link" size="small" onClick={() => openRoleModal(record)}>分配角色</Button>
+          {record.isSuper === 1 ? (
+            <Tooltip title="超级管理员角色不可修改">
+              <Button type="link" size="small" disabled>分配角色</Button>
+            </Tooltip>
+          ) : (
+            <Button type="link" size="small" onClick={() => openRoleModal(record)}>分配角色</Button>
+          )}
         </Space>
       ),
     },
@@ -206,7 +227,11 @@ const UserPage: React.FC = () => {
           columns={columns}
           dataSource={data}
           scroll={{ x: 1000 }}
-          rowSelection={{ selectedRowKeys: selected, onChange: (keys) => setSelected(keys as number[]) }}
+          rowSelection={{
+            selectedRowKeys: selected,
+            onChange: (keys) => setSelected(keys as number[]),
+            getCheckboxProps: (record) => ({ disabled: record.isSuper === 1 }),
+          }}
           pagination={{
             current: pagination.page, pageSize: pagination.size, total,
             showSizeChanger: true, showTotal: (t) => `共 ${t} 条`,

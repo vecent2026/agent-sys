@@ -8,6 +8,7 @@ import {
   Popconfirm,
   Form,
   Input,
+  Tag,
   Tooltip,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -53,7 +54,18 @@ const PlatformRolesPage: React.FC = () => {
   };
 
   const columns: ColumnsType<RoleVo> = [
-    { title: '角色名称', dataIndex: 'roleName', width: 160, ellipsis: true },
+    {
+      title: '角色名称',
+      dataIndex: 'roleName',
+      width: 180,
+      ellipsis: true,
+      render: (v, record) => (
+        <Space size={6}>
+          {v}
+          {record.isBuiltin === 1 && <Tag color="gold">内置</Tag>}
+        </Space>
+      ),
+    },
     { title: '角色标识', dataIndex: 'roleKey', width: 180, ellipsis: true },
     {
       title: '描述',
@@ -75,6 +87,13 @@ const PlatformRolesPage: React.FC = () => {
       fixed: 'right',
       width: 220,
       render: (_, record) => {
+        if (record.isBuiltin === 1) {
+          return (
+            <Tooltip title="内置超级管理员角色不可编辑或删除">
+              <span style={{ color: '#94a3b8', fontSize: 13 }}>受保护</span>
+            </Tooltip>
+          );
+        }
         const canDelete = !record.userCount || record.userCount === 0;
         return (
           <Space size={4}>

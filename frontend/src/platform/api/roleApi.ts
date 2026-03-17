@@ -7,6 +7,7 @@ export interface RoleVo {
   description: string;
   createTime: string;
   userCount: number;
+  isBuiltin?: number;
 }
 
 export interface RoleDto {
