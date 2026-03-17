@@ -133,6 +133,13 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(List<Long> ids) {
+        // 不允许删除超管账号
+        List<SysUser> users = sysUserMapper.selectBatchIds(ids);
+        for (SysUser u : users) {
+            if (Integer.valueOf(1).equals(u.getIsSuper())) {
+                throw new BusinessException("内置超级管理员账号不可删除");
+            }
+        }
         // 逻辑删除用户
         sysUserMapper.deleteBatchIds(ids);
         // 删除用户角色关联
@@ -177,6 +184,11 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("User not found");
         }
 
+        // 不允许禁用超管账号
+        if (Integer.valueOf(1).equals(user.getIsSuper())) {
+            throw new BusinessException("内置超级管理员账号状态不可修改");
+        }
+
         // Check if status changed from enabled to disabled
         if (user.getStatus() == 1 && status == 0) {
             // Force logout by incrementing token version
@@ -195,6 +207,11 @@ public class UserServiceImpl implements UserService {
     
     @Override
     public void assignUserRoles(Long userId, List<Long> roleIds) {
+        // 不允许修改超管账号的角色
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user != null && Integer.valueOf(1).equals(user.getIsSuper())) {
+            throw new BusinessException("内置超级管理员账号角色不可修改");
+        }
         // 先删除用户原有角色
         sysUserRoleMapper.deleteByUserId(userId);
         

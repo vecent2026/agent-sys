@@ -7,6 +7,7 @@ export interface UserVo {
   mobile: string;
   email: string;
   status: number;
+  isSuper?: number;
   lastLoginTime?: string;
   createTime: string;
   roleNames: string[];

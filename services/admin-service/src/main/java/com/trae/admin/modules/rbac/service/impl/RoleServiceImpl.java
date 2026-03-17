@@ -96,9 +96,9 @@ public class RoleServiceImpl implements RoleService {
             throw new BusinessException("Role not found");
         }
         
-        // Protect super admin role
-        if ("admin".equals(role.getRoleKey())) {
-            throw new BusinessException("超级管理员角色权限不可修改");
+        // Protect builtin role
+        if (Integer.valueOf(1).equals(role.getIsBuiltin())) {
+            throw new BusinessException("内置超级管理员角色权限不可修改");
         }
         
         // Delete old permissions
@@ -132,9 +132,9 @@ public class RoleServiceImpl implements RoleService {
             throw new BusinessException("Role not found");
         }
 
-        // Protect super admin role
-        if ("admin".equals(role.getRoleKey())) {
-            throw new BusinessException("超级管理员角色不可修改");
+        // Protect builtin role
+        if (Integer.valueOf(1).equals(role.getIsBuiltin())) {
+            throw new BusinessException("内置超级管理员角色不可修改");
         }
 
         if (!role.getRoleKey().equals(roleDto.getRoleKey())) {
@@ -168,11 +168,11 @@ public class RoleServiceImpl implements RoleService {
             throw new BusinessException("Cannot delete role assigned to users");
         }
 
-        // Protect super admin role
+        // Protect builtin roles
         List<SysRole> roles = sysRoleMapper.selectBatchIds(ids);
         for (SysRole role : roles) {
-            if ("admin".equals(role.getRoleKey())) {
-                throw new BusinessException("超级管理员角色不可删除");
+            if (Integer.valueOf(1).equals(role.getIsBuiltin())) {
+                throw new BusinessException("内置超级管理员角色不可删除");
             }
         }
 

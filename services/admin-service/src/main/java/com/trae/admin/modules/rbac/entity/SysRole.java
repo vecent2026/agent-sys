@@ -42,4 +42,9 @@ public class SysRole extends BaseEntity {
      * 所属租户 ID（由 TenantLineInnerInterceptor 自动注入）
      */
     private Long tenantId;
+
+    /**
+     * 是否内置角色 0=否 1=是（内置角色不可删除/编辑）
+     */
+    private Integer isBuiltin;
 }

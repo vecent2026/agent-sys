@@ -18,4 +18,5 @@ public class RoleVo {
     private LocalDateTime updateTime;
     private String createBy;
     private Integer userCount;
+    private Integer isBuiltin;
 }
