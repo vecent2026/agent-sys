@@ -59,8 +59,11 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
             throw new BusinessException("账号已被禁用");
         }
 
-        // 获取权限列表
-        List<SysPermission> perms = sysPermissionMapper.selectPermissionsByUserId(user.getId());
+        // 获取权限列表（超级管理员拥有全部权限）
+        boolean isSuper = Integer.valueOf(1).equals(user.getIsSuper());
+        List<SysPermission> perms = isSuper
+                ? sysPermissionMapper.selectAllPermissions()
+                : sysPermissionMapper.selectPermissionsByUserId(user.getId());
         List<String> authorities = perms.stream()
                 .filter(p -> StringUtils.hasText(p.getPermissionKey()))
                 .map(SysPermission::getPermissionKey)
@@ -75,7 +78,7 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
         // 生成 tokens
         String accessToken = jwtUtil.createPlatformToken(
                 user.getId(), user.getUsername(),
-                Integer.valueOf(1).equals(user.getIsSuper()),
+                isSuper,
                 tokenVersion, authorities);
         String refreshToken = jwtUtil.createPlatformRefreshToken(
                 user.getId(), user.getUsername(), tokenVersion);
@@ -117,8 +120,11 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
             throw new BusinessException("用户不存在或已禁用");
         }
 
-        // 重新获取权限
-        List<SysPermission> perms = sysPermissionMapper.selectPermissionsByUserId(userId);
+        // 重新获取权限（超级管理员拥有全部权限）
+        boolean isSuper = Integer.valueOf(1).equals(user.getIsSuper());
+        List<SysPermission> perms = isSuper
+                ? sysPermissionMapper.selectAllPermissions()
+                : sysPermissionMapper.selectPermissionsByUserId(userId);
         List<String> authorities = perms.stream()
                 .filter(p -> StringUtils.hasText(p.getPermissionKey()))
                 .map(SysPermission::getPermissionKey)
@@ -126,7 +132,7 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
 
         String newAccessToken = jwtUtil.createPlatformToken(
                 user.getId(), user.getUsername(),
-                Integer.valueOf(1).equals(user.getIsSuper()),
+                isSuper,
                 tokenVersion, authorities);
 
         Map<String, Object> result = new HashMap<>();
@@ -177,7 +183,11 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
         SysUser user = sysUserMapper.selectOne(
                 new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
         if (user == null) return Collections.emptyList();
-        List<SysPermission> perms = sysPermissionMapper.selectPermissionsByUserId(user.getId());
+        // 超级管理员拥有全部权限
+        boolean isSuper = Integer.valueOf(1).equals(user.getIsSuper());
+        List<SysPermission> perms = isSuper
+                ? sysPermissionMapper.selectAllPermissions()
+                : sysPermissionMapper.selectPermissionsByUserId(user.getId());
         return perms.stream()
                 .filter(p -> StringUtils.hasText(p.getPermissionKey()))
                 .map(SysPermission::getPermissionKey)
