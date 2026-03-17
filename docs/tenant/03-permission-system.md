@@ -10,7 +10,7 @@
 │       │ N:M via platform_user_role                                │
 │       ▼                                                           │
 │  platform_role（平台角色，如"系统管理员""运营管理员"）                │
-│  ⚠ 超级管理员（is_super=1）不走角色校验，直接拥有全部平台权限          │
+│  ⚠ 登录时先判断用户是否持有 is_super=1 角色；若是则授予全量平台权限      │
 │    普通平台用户必须分配 platform_role 才能访问平台功能                │
 │    platform_role 的增删改通常仅超管可操作（platform:role:*）         │
 │       │ N:M via platform_role_permission                          │
@@ -62,7 +62,7 @@ action:   list | query | add | edit | remove | reset | export | disable | assign
 
 ### 2.2 权限标识迁移映射
 
-> 现有权限标识格式为 `sys:xxx`，改造后统一迁移。以下为部分示例，完整 UPDATE 语句见 `06-migration-plan.md §4`。
+> 现有权限标识格式为 `sys:xxx`，改造后统一迁移。以下为部分示例（完整映射以本节与初始化 SQL 为准）。
 
 | 旧标识 | 新标识 | scope | 说明 |
 |--------|--------|-------|------|
@@ -233,7 +233,7 @@ public UserDetails loadUserByUsername(String mobile) {
 ### 3.2 平台用户权限加载
 
 > 平台用户权限通过 `platform_user_role` → `platform_role_permission` → `platform_permission` 链路加载。
-> 若用户持有 `is_super=1` 的角色，则直接查询全量权限，跳过角色关联链路（见 §6）。
+> 登录时先判断用户角色中是否存在 `is_super=1`；若存在则授予全量平台权限，不再受 `platform_role_permission` 约束（见 §6）。
 
 权限加载发生在**登录时**（`PlatformAuthServiceImpl.login()`），权限列表写入 JWT `authorities` claim，后续请求直接从 JWT 读取，无需再查数据库。
 
@@ -467,6 +467,7 @@ public void createTenantWithAdmin(CreateTenantDto dto) {
 | **内置超管角色** | `platform_role(is_super=1, is_builtin=1, role_key='super_admin')`，系统初始化时创建，不可删除、不可修改 |
 | **内置 admin 账号** | `platform_user(is_builtin=1, username='admin')`，默认密码 `123456`，不可删除、不可禁用、不可修改角色分配 |
 | **超管身份判断** | 登录时查询用户持有的角色，若任意角色 `is_super=1`，则 JWT 中 `isSuper=true` |
+| **`is_super` 与 `is_builtin` 区分** | `is_super` 用于超管权限判定；`is_builtin` 用于系统默认账号/角色保护，两者语义不同且可同时为 1 |
 
 ### 6.2 登录权限加载逻辑
 

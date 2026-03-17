@@ -82,8 +82,8 @@ CREATE TABLE `platform_user` (
 ### 1.3 平台角色表 `platform_role`
 
 > 平台端角色体系，用于管理平台管理员的权限范围（如"运营管理员"只能查看日志）。
-> `is_super=1` 标识超级管理员角色：持有此角色的平台用户拥有全部平台权限，后端跳过权限校验，前端展示所有权限节点为已勾选（仅展示效果）。
-> `is_builtin=1` 标识内置角色：不可删除、不可修改权限配置（`is_super=1` 隐含 `is_builtin=1`）。
+> `is_super=1` 标识超级管理员角色：持有此角色的平台用户在登录时判定为超管，授予全量平台权限。
+> `is_builtin=1` 标识内置角色：用于保护系统默认角色，不可删除、不可修改关键字段（`role_name`/`role_key`/`is_super`/`is_builtin`）。
 
 ```sql
 CREATE TABLE `platform_role` (
@@ -286,7 +286,7 @@ ALTER TABLE `platform_permission`
 UPDATE `platform_permission` SET `scope` = 'platform' WHERE `permission_key` LIKE 'platform:%';
 UPDATE `platform_permission` SET `scope` = 'tenant'   WHERE `permission_key` LIKE 'tenant:%';
 
--- 将现有 sys:xxx 格式权限标识更新为新格式（详见 06-migration-plan.md §4）
+-- 将现有 sys:xxx 格式权限标识更新为新格式（映射规则见 03-permission-system.md §2.2）
 -- 示例：
 UPDATE `platform_permission` SET `permission_key` = 'platform:user:list',   `scope` = 'platform' WHERE `permission_key` = 'sys:user:list';
 UPDATE `platform_permission` SET `permission_key` = 'tenant:role:list',     `scope` = 'tenant'   WHERE `permission_key` = 'sys:role:list';
