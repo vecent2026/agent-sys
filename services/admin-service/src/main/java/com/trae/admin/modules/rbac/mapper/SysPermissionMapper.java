@@ -17,10 +17,8 @@ public interface SysPermissionMapper extends BaseMapper<SysPermission> {
     /**
      * 查询平台用户的所有权限（通过 platform_user_role + platform_role_permission）
      */
-    // platform_user_role: platform_user ↔ tenant_role
-    // tenant_role_permission: tenant_role ↔ platform_permission（原 sys_role_permission 改名而来）
     @Select("SELECT p.* FROM platform_permission p " +
-            "INNER JOIN tenant_role_permission rp ON p.id = rp.permission_id " +
+            "INNER JOIN platform_role_permission rp ON p.id = rp.permission_id " +
             "INNER JOIN platform_user_role ur ON rp.role_id = ur.role_id " +
             "WHERE ur.user_id = #{userId} AND p.is_deleted = 0")
     List<SysPermission> selectPermissionsByUserId(@Param("userId") Long userId);

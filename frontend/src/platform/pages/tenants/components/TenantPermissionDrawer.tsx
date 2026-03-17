@@ -15,7 +15,10 @@ interface TenantPermissionDrawerProps {
 function filterTenantScopeNodes(nodes: PermissionVo[]): PermissionVo[] {
   const result: PermissionVo[] = [];
   for (const node of nodes) {
-    const isTenant = node.scope === 'tenant';
+    // 优先用 scope 字段；后端未升级时用 permissionKey 前缀兜底
+    const isTenant =
+      node.scope === 'tenant' ||
+      (node.scope == null && !!node.permissionKey && node.permissionKey.startsWith('app:'));
     const child = { ...node };
     if (child.children?.length) {
       child.children = filterTenantScopeNodes(child.children);

@@ -18,37 +18,20 @@ import type { MenuProps } from 'antd';
 
 const { Header, Sider, Content } = Layout;
 
-const PLATFORM_MENUS: MenuProps['items'] = [
-  {
-    key: '/dashboard',
-    icon: <DashboardOutlined />,
-    label: '控制台',
-  },
-  {
-    key: '/tenants',
-    icon: <ApartmentOutlined />,
-    label: '租户管理',
-  },
-  {
-    key: '/users',
-    icon: <TeamOutlined />,
-    label: '平台用户',
-  },
-  {
-    key: '/roles',
-    icon: <SafetyOutlined />,
-    label: '平台角色',
-  },
-  {
-    key: '/permissions',
-    icon: <KeyOutlined />,
-    label: '权限节点',
-  },
-  {
-    key: '/logs',
-    icon: <FileTextOutlined />,
-    label: '操作日志',
-  },
+interface PlatformMenuItem {
+  key: string;
+  icon: React.ReactNode;
+  label: string;
+  permission?: string; // undefined = 所有人可见（如控制台）
+}
+
+const RAW_PLATFORM_MENUS: PlatformMenuItem[] = [
+  { key: '/dashboard', icon: <DashboardOutlined />, label: '控制台' },
+  { key: '/tenants',   icon: <ApartmentOutlined />, label: '租户管理', permission: 'platform:tenant:list' },
+  { key: '/users',     icon: <TeamOutlined />,      label: '平台用户', permission: 'platform:user:list' },
+  { key: '/roles',     icon: <SafetyOutlined />,    label: '平台角色', permission: 'platform:role:list' },
+  { key: '/permissions', icon: <KeyOutlined />,     label: '权限节点', permission: 'platform:menu:list' },
+  { key: '/logs',      icon: <FileTextOutlined />,  label: '操作日志', permission: 'platform:log:list' },
 ];
 
 const PlatformLayout: React.FC = () => {
@@ -58,7 +41,7 @@ const PlatformLayout: React.FC = () => {
   } = theme.useToken();
   const navigate = useNavigate();
   const location = useLocation();
-  const { userInfo, logout } = usePlatformUserStore();
+  const { userInfo, permissions, isSuper, logout } = usePlatformUserStore();
 
   const handleLogout = () => {
     logout();
@@ -74,12 +57,16 @@ const PlatformLayout: React.FC = () => {
     },
   ];
 
-  const menuItemsWithClick = useMemo(() =>
-    PLATFORM_MENUS?.map((item: any) => ({
-      ...item,
-      onClick: () => navigate(item.key as string),
-    })) || [],
-    [navigate]
+  const menuItemsWithClick = useMemo<MenuProps['items']>(() =>
+    RAW_PLATFORM_MENUS
+      .filter(item => !item.permission || isSuper || permissions.includes(item.permission))
+      .map(item => ({
+        key: item.key,
+        icon: item.icon,
+        label: item.label,
+        onClick: () => navigate(item.key),
+      })),
+    [navigate, permissions, isSuper]
   );
 
   return (
