@@ -43,7 +43,7 @@ public class UserController {
             }
     )
     @GetMapping
-    @PreAuthorize("hasAuthority('platform:user:list')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:user:list')")
     public Result<Page<UserVo>> page(UserQueryDto queryDto) {
         return Result.success(userService.page(queryDto));
     }
@@ -62,7 +62,7 @@ public class UserController {
             }
     )
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('platform:user:query')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:user:query')")
     public Result<UserVo> get(@PathVariable Long id) {
         return Result.success(userService.get(id));
     }
@@ -78,7 +78,7 @@ public class UserController {
             }
     )
     @PostMapping
-    @PreAuthorize("hasAuthority('platform:user:add')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:user:add')")
     @Log(module = "用户管理", action = "新增用户")
     public Result<Void> save(@RequestBody UserDto userDto) {
         userService.save(userDto);
@@ -96,7 +96,7 @@ public class UserController {
             }
     )
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('platform:user:edit')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:user:edit')")
     @Log(module = "用户管理", action = "修改用户")
     public Result<Void> update(@PathVariable Long id, @RequestBody UserDto userDto) {
         userDto.setId(id);
@@ -114,7 +114,7 @@ public class UserController {
             }
     )
     @DeleteMapping("/{ids}")
-    @PreAuthorize("hasAuthority('platform:user:remove')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:user:remove')")
     @Log(module = "用户管理", action = "删除用户")
     public Result<Void> delete(@PathVariable String ids) {
         List<Long> idList = Arrays.stream(ids.split(","))
@@ -155,7 +155,7 @@ public class UserController {
             }
     )
     @PutMapping("/{id}/password")
-    @PreAuthorize("hasAuthority('platform:user:reset')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:user:reset')")
     @Log(module = "用户管理", action = "重置密码")
     public Result<Void> resetPassword(@PathVariable Long id, @RequestBody Map<String, String> params) {
         String password = params.get("password");
@@ -177,7 +177,7 @@ public class UserController {
             }
     )
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('platform:user:edit')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:user:edit')")
     @Log(module = "用户管理", action = "修改状态")
     public Result<Void> changeStatus(@PathVariable Long id, @RequestBody Map<String, Object> params) {
         Integer status = Integer.valueOf(params.get("status").toString());
@@ -198,7 +198,7 @@ public class UserController {
             }
     )
     @GetMapping("/{id}/roles")
-    @PreAuthorize("hasAuthority('platform:user:query')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:user:query')")
     public Result<List<Long>> getUserRoles(@PathVariable Long id) {
         return Result.success(userService.getUserRoleIds(id));
     }
@@ -216,7 +216,7 @@ public class UserController {
             }
     )
     @PostMapping("/{id}/roles")
-    @PreAuthorize("hasAuthority('platform:user:edit')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:user:edit')")
     @Log(module = "用户管理", action = "分配角色")
     public Result<Void> assignUserRoles(@PathVariable Long id, @RequestBody Map<String, List<Long>> requestBody) {
         userService.assignUserRoles(id, requestBody.get("roleIds"));

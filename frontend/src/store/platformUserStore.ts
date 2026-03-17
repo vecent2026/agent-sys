@@ -38,7 +38,7 @@ export const usePlatformUserStore = create<PlatformUserState>((set) => ({
     storage.setPlatformToken(access, refresh);
     set({ token: { access, refresh } });
   },
-  setUserInfo: (userInfo) => set({ userInfo, isSuper: userInfo.isSuper }),
+  setUserInfo: (userInfo) => set({ userInfo, isSuper: !!userInfo?.isSuper }),
   setPermissions: (permissions) => set({ permissions }),
   logout: () => {
     storage.clearPlatformToken();

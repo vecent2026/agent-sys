@@ -77,12 +77,16 @@ export const appTheme: ThemeConfig = {
       headerHeight: 64,
     },
     Card: {
-      borderRadius: 12,
+      borderRadius: 15,
       padding: 16,
     },
     Button: {
       controlHeight: 32,
       borderRadius: 8,
+    },
+    Table: {
+      cellPaddingBlock: 8,
+      cellPaddingInline: 12,
     },
   },
 };
