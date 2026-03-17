@@ -1,10 +1,33 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import type { Connect } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Dev 模式下模拟 nginx 的 MPA 路由重写：/platform/* → platform.html
+    {
+      name: 'mpa-dev-router',
+      configureServer(server) {
+        server.middlewares.use((req: Connect.IncomingMessage, _res, next) => {
+          const url = req.url ?? '/'
+          if (
+            url.startsWith('/platform') &&
+            !url.startsWith('/platform.html') &&
+            !url.startsWith('/src/') &&
+            !url.startsWith('/node_modules/') &&
+            !url.startsWith('/@') &&
+            !url.startsWith('/api/')
+          ) {
+            req.url = '/platform.html'
+          }
+          next()
+        })
+      },
+    },
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
