@@ -218,7 +218,11 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         try {
             long ttl = jwtUtil.getExpirationFromToken(token).getTime() - System.currentTimeMillis();
             if (ttl > 0) {
-                redisUtil.set("blacklist:" + token, "1", ttl, TimeUnit.MILLISECONDS);
+                Claims claims = jwtUtil.extractAllClaims(token);
+                String jti = jwtUtil.getJti(claims);
+                if (StringUtils.hasText(jti)) {
+                    redisUtil.set("blacklist:" + jti, "1", ttl, TimeUnit.MILLISECONDS);
+                }
             }
         } catch (Exception e) {
             log.warn("logout: token parse failed", e);

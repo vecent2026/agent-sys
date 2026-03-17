@@ -71,7 +71,7 @@ public class SysUser extends BaseEntity {
     private Integer tokenVersion;
 
     /**
-     * 是否超管 0=否 1=是
+     * 是否内置账号 0=否 1=是（不可删除/禁用/修改角色）
      */
-    private Integer isSuper;
+    private Integer isBuiltin;
 }

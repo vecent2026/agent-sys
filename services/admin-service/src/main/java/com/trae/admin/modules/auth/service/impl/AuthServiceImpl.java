@@ -156,7 +156,10 @@ public class AuthServiceImpl implements AuthService {
             // Add access token to blacklist
             long expiration = jwtUtil.getExpirationFromToken(token).getTime() - System.currentTimeMillis();
             if (expiration > 0) {
-                redisUtil.set("blacklist:" + token, "1", expiration, TimeUnit.MILLISECONDS);
+                String jti = jwtUtil.getJti(jwtUtil.extractAllClaims(token));
+                if (StringUtils.hasText(jti)) {
+                    redisUtil.set("blacklist:" + jti, "1", expiration, TimeUnit.MILLISECONDS);
+                }
             }
         }
         SecurityContextHolder.clearContext();

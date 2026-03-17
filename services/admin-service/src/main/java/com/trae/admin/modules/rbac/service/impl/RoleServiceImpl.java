@@ -11,8 +11,8 @@ import com.trae.admin.modules.rbac.mapper.SysRoleMapper;
 import com.trae.admin.modules.rbac.mapper.SysRolePermissionMapper;
 import com.trae.admin.modules.rbac.service.RoleService;
 import com.trae.admin.modules.rbac.vo.RoleVo;
-import com.trae.admin.modules.tenant.entity.TenantUserRole;
-import com.trae.admin.modules.tenant.mapper.TenantUserRoleMapper;
+import com.trae.admin.modules.user.entity.SysUserRole;
+import com.trae.admin.modules.user.mapper.SysUserRoleMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -29,7 +29,7 @@ public class RoleServiceImpl implements RoleService {
 
     private final SysRoleMapper sysRoleMapper;
     private final SysRolePermissionMapper sysRolePermissionMapper;
-    private final TenantUserRoleMapper tenantUserRoleMapper;
+    private final SysUserRoleMapper sysUserRoleMapper;
 
     @Override
     public Page<RoleVo> page(RoleQueryDto queryDto) {
@@ -42,6 +42,7 @@ public class RoleServiceImpl implements RoleService {
         if (StringUtils.hasText(queryDto.getRoleKey())) {
             wrapper.like(SysRole::getRoleKey, queryDto.getRoleKey());
         }
+        wrapper.eq(SysRole::getIsDeleted, 0);
         
         wrapper.orderByDesc(SysRole::getCreateTime);
         
@@ -59,7 +60,10 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public List<RoleVo> listAll() {
-        return sysRoleMapper.selectList(null).stream()
+        return sysRoleMapper.selectList(new LambdaQueryWrapper<SysRole>()
+                        .eq(SysRole::getIsDeleted, 0)
+                        .orderByDesc(SysRole::getCreateTime))
+                .stream()
                 .map(this::convertToVo)
                 .collect(Collectors.toList());
     }
@@ -67,7 +71,7 @@ public class RoleServiceImpl implements RoleService {
     @Override
     public RoleVo get(Long id) {
         SysRole role = sysRoleMapper.selectById(id);
-        if (role == null) {
+        if (role == null || Integer.valueOf(1).equals(role.getIsDeleted())) {
             throw new BusinessException("Role not found");
         }
         return convertToVo(role);
@@ -92,7 +96,7 @@ public class RoleServiceImpl implements RoleService {
     public void assignPermissions(Long roleId, List<Long> permissionIds) {
         // Check if role exists
         SysRole role = sysRoleMapper.selectById(roleId);
-        if (role == null) {
+        if (role == null || Integer.valueOf(1).equals(role.getIsDeleted())) {
             throw new BusinessException("Role not found");
         }
         
@@ -113,7 +117,8 @@ public class RoleServiceImpl implements RoleService {
     @Transactional(rollbackFor = Exception.class)
     public void save(RoleDto roleDto) {
         if (sysRoleMapper.selectCount(new LambdaQueryWrapper<SysRole>()
-                .eq(SysRole::getRoleKey, roleDto.getRoleKey())) > 0) {
+                .eq(SysRole::getRoleKey, roleDto.getRoleKey())
+                .eq(SysRole::getIsDeleted, 0)) > 0) {
             throw new BusinessException("Role key already exists");
         }
 
@@ -128,7 +133,7 @@ public class RoleServiceImpl implements RoleService {
     @Transactional(rollbackFor = Exception.class)
     public void update(RoleDto roleDto) {
         SysRole role = sysRoleMapper.selectById(roleDto.getId());
-        if (role == null) {
+        if (role == null || Integer.valueOf(1).equals(role.getIsDeleted())) {
             throw new BusinessException("Role not found");
         }
 
@@ -139,7 +144,8 @@ public class RoleServiceImpl implements RoleService {
 
         if (!role.getRoleKey().equals(roleDto.getRoleKey())) {
             if (sysRoleMapper.selectCount(new LambdaQueryWrapper<SysRole>()
-                    .eq(SysRole::getRoleKey, roleDto.getRoleKey())) > 0) {
+                    .eq(SysRole::getRoleKey, roleDto.getRoleKey())
+                    .eq(SysRole::getIsDeleted, 0)) > 0) {
                 throw new BusinessException("Role key already exists");
             }
         }
@@ -163,8 +169,8 @@ public class RoleServiceImpl implements RoleService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(List<Long> ids) {
         // Check if assigned to users
-        if (tenantUserRoleMapper.selectCount(new LambdaQueryWrapper<TenantUserRole>()
-                .in(TenantUserRole::getRoleId, ids)) > 0) {
+        if (sysUserRoleMapper.selectCount(new LambdaQueryWrapper<SysUserRole>()
+                .in(SysUserRole::getRoleId, ids)) > 0) {
             throw new BusinessException("Cannot delete role assigned to users");
         }
 

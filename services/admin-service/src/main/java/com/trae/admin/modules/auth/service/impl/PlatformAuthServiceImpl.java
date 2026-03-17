@@ -10,6 +10,7 @@ import com.trae.admin.modules.auth.service.PlatformAuthService;
 import com.trae.admin.modules.rbac.entity.SysPermission;
 import com.trae.admin.modules.rbac.mapper.SysPermissionMapper;
 import com.trae.admin.modules.user.entity.SysUser;
+import com.trae.admin.modules.user.mapper.SysUserRoleMapper;
 import com.trae.admin.modules.user.mapper.SysUserMapper;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,6 +40,7 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
     private final JwtUtil jwtUtil;
     private final RedisUtil redisUtil;
     private final SysUserMapper sysUserMapper;
+    private final SysUserRoleMapper sysUserRoleMapper;
     private final SysPermissionMapper sysPermissionMapper;
     private final PasswordEncoder passwordEncoder;
 
@@ -60,7 +62,7 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
         }
 
         // 获取权限列表（超级管理员拥有全部权限）
-        boolean isSuper = Integer.valueOf(1).equals(user.getIsSuper());
+        boolean isSuper = sysUserRoleMapper.existsSuperRole(user.getId());
         List<SysPermission> perms = isSuper
                 ? sysPermissionMapper.selectAllPermissions()
                 : sysPermissionMapper.selectPermissionsByUserId(user.getId());
@@ -91,7 +93,7 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
         result.put("refreshToken", refreshToken);
         result.put("userId", user.getId());
         result.put("username", user.getUsername());
-        result.put("isSuper", user.getIsSuper());
+        result.put("isSuper", isSuper);
         return result;
     }
 
@@ -121,7 +123,7 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
         }
 
         // 重新获取权限（超级管理员拥有全部权限）
-        boolean isSuper = Integer.valueOf(1).equals(user.getIsSuper());
+        boolean isSuper = sysUserRoleMapper.existsSuperRole(userId);
         List<SysPermission> perms = isSuper
                 ? sysPermissionMapper.selectAllPermissions()
                 : sysPermissionMapper.selectPermissionsByUserId(userId);
@@ -148,7 +150,11 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
         try {
             long ttl = jwtUtil.getExpirationFromToken(token).getTime() - System.currentTimeMillis();
             if (ttl > 0) {
-                redisUtil.set("blacklist:" + token, "1", ttl, TimeUnit.MILLISECONDS);
+                Claims claims = jwtUtil.extractAllClaims(token);
+                String jti = jwtUtil.getJti(claims);
+                if (StringUtils.hasText(jti)) {
+                    redisUtil.set("blacklist:" + jti, "1", ttl, TimeUnit.MILLISECONDS);
+                }
             }
         } catch (Exception e) {
             log.warn("logout: token parse failed", e);
@@ -170,7 +176,7 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
         info.put("nickname", user.getNickname());
         info.put("email", user.getEmail());
         info.put("mobile", user.getMobile());
-        info.put("isSuper", user.getIsSuper());
+        info.put("isSuper", sysUserRoleMapper.existsSuperRole(user.getId()));
         info.put("status", user.getStatus());
         return info;
     }
@@ -184,7 +190,7 @@ public class PlatformAuthServiceImpl implements PlatformAuthService {
                 new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
         if (user == null) return Collections.emptyList();
         // 超级管理员拥有全部权限
-        boolean isSuper = Integer.valueOf(1).equals(user.getIsSuper());
+        boolean isSuper = sysUserRoleMapper.existsSuperRole(user.getId());
         List<SysPermission> perms = isSuper
                 ? sysPermissionMapper.selectAllPermissions()
                 : sysPermissionMapper.selectPermissionsByUserId(user.getId());

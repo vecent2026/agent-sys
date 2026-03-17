@@ -106,13 +106,11 @@ public class JwtUtil {
      * tenants: [{tenantId, tenantName, ...}, ...]
      */
     public String createPreToken(Long userId, String mobile, List<Map<String, Object>> tenants) {
-        String jti = UUID.randomUUID().toString();
         Map<String, Object> claims = new HashMap<>();
         claims.put("isPre", true);
         claims.put("userId", userId);
         claims.put("mobile", mobile);
         claims.put("tenants", tenants);
-        claims.put("jti", jti);
         return buildToken(claims, mobile, PRE_TOKEN_EXPIRATION);
     }
 
@@ -163,7 +161,8 @@ public class JwtUtil {
     }
 
     public String getJti(Claims claims) {
-        return (String) claims.get("jti");
+        String jti = (String) claims.get("jti");
+        return jti != null ? jti : claims.getId();
     }
 
     @SuppressWarnings("unchecked")
@@ -238,6 +237,7 @@ public class JwtUtil {
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(subject)
+                .setId(UUID.randomUUID().toString())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + ttlMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)

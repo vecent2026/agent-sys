@@ -17,6 +17,7 @@ public class UserVo {
     private String mobile;
     private String email;
     private Integer status;
+    private Integer isBuiltin;
     private Integer isSuper;
     private LocalDateTime lastLoginTime;
     private LocalDateTime createTime;

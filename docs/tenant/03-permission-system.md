@@ -234,6 +234,7 @@ public UserDetails loadUserByUsername(String mobile) {
 
 > 平台用户权限通过 `platform_user_role` → `platform_role_permission` → `platform_permission` 链路加载。
 > 登录时先判断用户角色中是否存在 `is_super=1`；若存在则授予全量平台权限，不再受 `platform_role_permission` 约束（见 §6）。
+> 平台角色管理接口 `/api/platform/roles` 仅操作 `platform_role` / `platform_role_permission`，与租户角色表 `tenant_role*` 完全分离。
 
 权限加载发生在**登录时**（`PlatformAuthServiceImpl.login()`），权限列表写入 JWT `authorities` claim，后续请求直接从 JWT 读取，无需再查数据库。
 
@@ -503,6 +504,13 @@ String token = jwtUtil.createPlatformToken(user.getId(), user.getUsername(), isS
 | `isSuper=true` | 跳过所有 UI 权限检查，所有菜单/按钮均可见 |
 | 超管角色的权限树 | 所有节点显示为已勾选（仅展示效果，不写入 `platform_role_permission`） |
 | 非超管角色 | 仅展示已授权节点，操作按钮按 `authorities` 校验 |
+
+平台用户管理接口返回字段约定：
+
+| 字段 | 含义 | 用途 |
+|------|------|------|
+| `isSuper` | 当前用户是否持有任一 `is_super=1` 的平台角色（计算字段） | 超管标识展示、全局权限短路 |
+| `isBuiltin` | 当前用户是否系统内置账号（`platform_user.is_builtin`） | 删除/禁用/角色分配等保护操作 |
 
 ### 6.4 内置账号/角色保护规则
 

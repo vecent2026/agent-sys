@@ -122,6 +122,9 @@ const UserPage: React.FC = () => {
   };
 
   const [queryForm] = Form.useForm();
+  const isSuperUser = (record: UserVo) => record.isSuper === 1 || record.isSuper === true;
+  const isBuiltinUser = (record: UserVo) => record.isBuiltin === 1 || record.isBuiltin === true;
+
   const handleSearch = () => {
     setQuery(queryForm.getFieldsValue());
     setPagination(p => ({ ...p, page: 1 }));
@@ -138,7 +141,7 @@ const UserPage: React.FC = () => {
       render: (val, record) => (
         <Space size={6}>
           {val}
-          {record.isSuper === 1 && <Tag color="red">超管</Tag>}
+          {isSuperUser(record) && <Tag color="red">超管</Tag>}
         </Space>
       ),
     },
@@ -151,11 +154,11 @@ const UserPage: React.FC = () => {
     {
       title: '状态', dataIndex: 'status', width: 80,
       render: (val, record) => (
-        <Tooltip title={record.isSuper === 1 ? '超级管理员状态不可修改' : undefined}>
+        <Tooltip title={isBuiltinUser(record) ? '内置账号状态不可修改' : undefined}>
           <Switch
             checked={val === 1}
             size="small"
-            disabled={record.isSuper === 1}
+            disabled={isBuiltinUser(record)}
             onChange={(c) => handleStatusChange(record.id, c)}
           />
         </Tooltip>
@@ -171,8 +174,8 @@ const UserPage: React.FC = () => {
         <Space>
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>编辑</Button>
           <Button type="link" size="small" icon={<KeyOutlined />} onClick={() => openPwdModal(record.id)}>重置密码</Button>
-          {record.isSuper === 1 ? (
-            <Tooltip title="超级管理员角色不可修改">
+          {isBuiltinUser(record) ? (
+            <Tooltip title="内置账号角色不可修改">
               <Button type="link" size="small" disabled>分配角色</Button>
             </Tooltip>
           ) : (
@@ -230,7 +233,7 @@ const UserPage: React.FC = () => {
           rowSelection={{
             selectedRowKeys: selected,
             onChange: (keys) => setSelected(keys as number[]),
-            getCheckboxProps: (record) => ({ disabled: record.isSuper === 1 }),
+            getCheckboxProps: (record) => ({ disabled: isBuiltinUser(record) }),
           }}
           pagination={{
             current: pagination.page, pageSize: pagination.size, total,

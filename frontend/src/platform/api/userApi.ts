@@ -7,7 +7,8 @@ export interface UserVo {
   mobile: string;
   email: string;
   status: number;
-  isSuper?: number;
+  isBuiltin?: number | boolean;
+  isSuper?: number | boolean;
   lastLoginTime?: string;
   createTime: string;
   roleNames: string[];

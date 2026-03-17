@@ -12,7 +12,7 @@ import lombok.EqualsAndHashCode;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-@TableName("tenant_role")
+@TableName("platform_role")
 public class SysRole extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
@@ -39,12 +39,12 @@ public class SysRole extends BaseEntity {
     private String description;
 
     /**
-     * 所属租户 ID（由 TenantLineInnerInterceptor 自动注入）
-     */
-    private Long tenantId;
-
-    /**
      * 是否内置角色 0=否 1=是（内置角色不可删除/编辑）
      */
     private Integer isBuiltin;
+
+    /**
+     * 是否超管角色 0=否 1=是（用于权限判定）
+     */
+    private Integer isSuper;
 }

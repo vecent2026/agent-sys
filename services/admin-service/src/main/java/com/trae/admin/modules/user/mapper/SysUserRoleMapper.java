@@ -26,4 +26,10 @@ public interface SysUserRoleMapper extends BaseMapper<SysUserRole> {
      */
     @Delete("DELETE FROM platform_user_role WHERE user_id = #{userId}")
     int deleteByUserId(@Param("userId") Long userId);
+
+    @Select("SELECT COUNT(*) > 0 " +
+            "FROM platform_user_role ur " +
+            "INNER JOIN platform_role r ON ur.role_id = r.id " +
+            "WHERE ur.user_id = #{userId} AND r.is_deleted = 0 AND r.is_super = 1")
+    boolean existsSuperRole(@Param("userId") Long userId);
 }

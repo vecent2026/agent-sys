@@ -233,6 +233,7 @@ Response:
 ```
 
 > **重要**：刷新 token 时必须保留 `tenantId`、`isPlatform`、`tokenVersion`、`tenantVersion` 等所有上下文字段，且重新从数据库校验一遍这些字段的有效性。
+> 平台端 token 版本校验统一使用 Redis 键 `platform:version:{userId}`；用户改密/禁用/重置密码后需更新该键，确保旧 token 立即失效。
 
 ---
 
@@ -254,7 +255,7 @@ Response:
 }
 ```
 
-> **Token 黑名单**：登出后将 jti 存入 Redis `token:blacklist:{jti}`，每次请求在 JwtAuthenticationFilter 中校验。
+> **Token 黑名单**：登出后将 jti 存入 Redis `blacklist:{jti}`，每次请求在 `JwtAuthenticationFilter` 中校验。
 
 ---
 
@@ -322,6 +323,10 @@ PUT    /api/platform/users/{id}/status           # 启用/禁用（更新 token_
 PUT    /api/platform/users/{id}/password         # 重置密码（更新 token_version）
 DELETE /api/platform/users/{ids}                 # 删除平台用户
 ```
+
+返回字段约定（列表/详情）：
+- `isSuper`：是否持有任一 `is_super=1` 平台角色（计算字段，不直接来源于 `platform_user` 持久字段）
+- `isBuiltin`：是否内置账号（`platform_user.is_builtin`），用于保护删除/禁用/修改角色等操作
 
 ### 3.3 权限节点管理
 

@@ -1,73 +1,94 @@
-# React + TypeScript + Vite
+# 前端项目说明
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+本目录是智能体管理平台的前端应用，技术栈为 React + TypeScript + Vite。
 
-Currently, two official plugins are available:
+## 技术栈
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 19
+- TypeScript 5
+- Vite 7
+- Ant Design 6
+- React Router 7
+- Zustand 5
+- React Query 5
+- Vitest
 
-## React Compiler
+## 环境要求
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js 20 及以上
+- npm 10 及以上（或兼容版本）
 
-## Expanding the ESLint configuration
+建议先检查：
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+node -v
+npm -v
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 安装依赖
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
+
+## 启动开发环境
+
+```bash
+npm run dev
+```
+
+默认由 Vite 启动开发服务。后端联调时，请先确保网关或后端服务已可访问。
+
+## 构建与预览
+
+构建生产包：
+
+```bash
+npm run build
+```
+
+本地预览构建结果：
+
+```bash
+npm run preview
+```
+
+## 代码检查与测试
+
+运行 ESLint：
+
+```bash
+npm run lint
+```
+
+运行单元测试：
+
+```bash
+npm run test
+```
+
+## 目录约定
+
+- `src/pages/`: 页面级模块
+- `src/components/`: 通用组件
+- `src/api/`: 接口请求封装
+- `src/store/`: Zustand 状态管理
+- `src/types/`: 类型定义
+- `src/styles/` 与样式文件: 页面和组件样式
+
+## 开发约束
+
+- 优先复用现有组件和 API 封装，不重复造轮子。
+- 保持 TypeScript 类型完整，避免 `any` 扩散。
+- UI 风格遵循仓库根目录规范：`/CLAUDE.md` 和 `design-system/`。
+- 涉及接口联调时，确保与后端端口和网关配置一致。
+
+## 常见问题
+
+依赖安装失败：
+- 删除 `node_modules` 与 lock 文件后重装。
+- 检查 Node.js 版本是否满足要求。
+
+联调请求失败：
+- 确认后端服务是否启动（常用端口 8081/8082/8083）。
+- 确认网关与本地代理配置是否一致。

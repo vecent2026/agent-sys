@@ -112,9 +112,7 @@ public class UserServiceImpl implements UserService {
 
         // Check if status changed from enabled to disabled
         if (user.getStatus() == 1 && userDto.getStatus() == 0) {
-            // Force logout by incrementing token version
-            String versionKey = "auth:version:" + user.getUsername();
-            redisUtil.increment(versionKey);
+            bumpTokenVersion(user);
         }
 
         BeanUtils.copyProperties(userDto, user, "password"); // Don't update password here
@@ -136,7 +134,7 @@ public class UserServiceImpl implements UserService {
         // 不允许删除超管账号
         List<SysUser> users = sysUserMapper.selectBatchIds(ids);
         for (SysUser u : users) {
-            if (Integer.valueOf(1).equals(u.getIsSuper())) {
+            if (Integer.valueOf(1).equals(u.getIsBuiltin())) {
                 throw new BusinessException("内置超级管理员账号不可删除");
             }
         }
@@ -169,9 +167,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("User not found");
         }
 
-        // Force logout by incrementing token version
-        String versionKey = "auth:version:" + user.getUsername();
-        redisUtil.increment(versionKey);
+        bumpTokenVersion(user);
 
         user.setPassword(passwordEncoder.encode(newPassword));
         sysUserMapper.updateById(user);
@@ -185,15 +181,13 @@ public class UserServiceImpl implements UserService {
         }
 
         // 不允许禁用超管账号
-        if (Integer.valueOf(1).equals(user.getIsSuper())) {
+        if (Integer.valueOf(1).equals(user.getIsBuiltin())) {
             throw new BusinessException("内置超级管理员账号状态不可修改");
         }
 
         // Check if status changed from enabled to disabled
         if (user.getStatus() == 1 && status == 0) {
-            // Force logout by incrementing token version
-            String versionKey = "auth:version:" + user.getUsername();
-            redisUtil.increment(versionKey);
+            bumpTokenVersion(user);
         }
 
         user.setStatus(status);
@@ -209,7 +203,7 @@ public class UserServiceImpl implements UserService {
     public void assignUserRoles(Long userId, List<Long> roleIds) {
         // 不允许修改超管账号的角色
         SysUser user = sysUserMapper.selectById(userId);
-        if (user != null && Integer.valueOf(1).equals(user.getIsSuper())) {
+        if (user != null && Integer.valueOf(1).equals(user.getIsBuiltin())) {
             throw new BusinessException("内置超级管理员账号角色不可修改");
         }
         // 先删除用户原有角色
@@ -233,10 +227,18 @@ public class UserServiceImpl implements UserService {
     private UserVo convertToVo(SysUser user) {
         UserVo vo = new UserVo();
         BeanUtils.copyProperties(user, vo);
+        vo.setIsSuper(sysUserRoleMapper.existsSuperRole(user.getId()) ? 1 : 0);
         List<String> roleNames = sysUserMapper.selectRoleNamesByUserId(user.getId());
         vo.setRoleNames(roleNames);
         List<Long> roleIds = sysUserMapper.selectRoleIdsByUserId(user.getId());
         vo.setRoleIds(roleIds);
         return vo;
+    }
+
+    private void bumpTokenVersion(SysUser user) {
+        int nextVersion = (user.getTokenVersion() == null ? 0 : user.getTokenVersion()) + 1;
+        user.setTokenVersion(nextVersion);
+        sysUserMapper.updateById(user);
+        redisUtil.set("platform:version:" + user.getId(), String.valueOf(nextVersion));
     }
 }
