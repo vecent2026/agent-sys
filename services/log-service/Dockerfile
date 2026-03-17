@@ -14,12 +14,22 @@ RUN mkdir -p /root/.m2 && echo '<settings xmlns="http://maven.apache.org/SETTING
 
 WORKDIR /app
 
-# 复制 pom.xml 和源代码
+# 复制项目的 pom.xml 文件到工作目录
 COPY pom.xml .
+
+# 预先下载依赖，利用 Docker 缓存机制
+# 只要 pom.xml 不变，这一步就会被缓存，大大加快后续构建速度
+RUN mvn dependency:go-offline -B
+
+# 复制项目源代码到工作目录
 COPY src ./src
 
-# 打包应用
-RUN mvn clean package -DskipTests
+# 执行 Maven 打包命令
+# clean: 清理之前的构建产物
+# package: 编译并打包应用
+# -Dmaven.test.skip=true: 完全跳过测试编译和执行，加快构建速度
+# -o: 离线模式，使用已下载的依赖
+RUN mvn clean package -Dmaven.test.skip=true -o
 
 # 运行阶段
 FROM amazoncorretto:17-alpine
