@@ -28,6 +28,12 @@ public class SysLogDocument implements Serializable {
     @Field(type = FieldType.Long)
     private Long userId;
 
+    @Field(type = FieldType.Long)
+    private Long tenantId;
+
+    @Field(type = FieldType.Boolean)
+    private Boolean isPlatform;
+
     @Field(type = FieldType.Keyword)
     private String username;
 

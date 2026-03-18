@@ -17,4 +17,6 @@ public class LogQueryDto {
     private String status;
     private String startTime;
     private String endTime;
+    private Long tenantId;
+    private Boolean isPlatform;
 }

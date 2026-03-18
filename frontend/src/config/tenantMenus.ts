@@ -89,7 +89,7 @@ const ALL_TENANT_MENUS: Permission[] = [
         parentId: 200,
         name: '操作日志',
         type: 'MENU',
-        permissionKey: 'platform:log:list',
+        permissionKey: 'tenant:log:list',
         path: '/system/log',
         component: 'system/log/index',
         sort: 3,

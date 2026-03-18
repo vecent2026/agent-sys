@@ -8,6 +8,7 @@ import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -43,6 +44,12 @@ public class GlobalExceptionHandler {
     public Result<Void> handleBadCredentialsException(BadCredentialsException e) {
         log.error("Bad Credentials: {}", e.getMessage());
         return Result.error(401, "账号或密码错误");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Result<Void> handleNoResourceFoundException(NoResourceFoundException e) {
+        log.warn("Resource Not Found: {}", e.getMessage());
+        return Result.error(404, "接口不存在");
     }
 
     @ExceptionHandler(Exception.class)

@@ -198,6 +198,7 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         List<String> authorities = isTenantAdmin
                 ? Collections.singletonList("TENANT_SUPER_ADMIN")
                 : tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId);
+        authorities = sanitizeAuthorities(authorities);
 
         String newAccessToken = jwtUtil.createTenantToken(userId, mobile, tenantId, tenantVersion, isTenantAdmin, authorities);
 
@@ -271,7 +272,7 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         Long userId = findUserIdByMobile(mobile);
         if (userId == null) return Collections.emptyList();
 
-        return tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId);
+        return sanitizeAuthorities(tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId));
     }
 
     // ──────────────────────────────────────────────────────
@@ -299,6 +300,7 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         List<String> authorities = isTenantAdmin
                 ? Collections.singletonList("TENANT_SUPER_ADMIN")
                 : tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId);
+        authorities = sanitizeAuthorities(authorities);
 
         String accessToken = jwtUtil.createTenantToken(userId, mobile, tenantId, tenantVersion, isTenantAdmin, authorities);
         String refreshToken = jwtUtil.createTenantRefreshToken(userId, mobile, tenantId, tenantVersion);
@@ -415,6 +417,16 @@ public class TenantAuthServiceImpl implements TenantAuthService {
     private Long toLong(Object val) {
         if (val == null) return null;
         return Long.valueOf(val.toString());
+    }
+
+    private List<String> sanitizeAuthorities(List<String> authorities) {
+        if (authorities == null || authorities.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return authorities.stream()
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     private String stripBearer(String token) {

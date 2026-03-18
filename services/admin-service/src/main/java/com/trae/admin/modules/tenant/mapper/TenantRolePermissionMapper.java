@@ -20,7 +20,9 @@ public interface TenantRolePermissionMapper extends BaseMapper<TenantRolePermiss
             "INNER JOIN tenant_role_permission trp ON p.id = trp.permission_id " +
             "INNER JOIN tenant_user_role tur ON trp.role_id = tur.role_id AND trp.tenant_id = tur.tenant_id " +
             "WHERE tur.user_id = #{userId} AND tur.tenant_id = #{tenantId} " +
-            "  AND p.is_deleted = 0")
+            "  AND p.is_deleted = 0 " +
+            "  AND p.permission_key IS NOT NULL " +
+            "  AND p.permission_key <> ''")
     List<String> selectUserPermissionKeys(@Param("userId") Long userId, @Param("tenantId") Long tenantId);
 
     @Select("SELECT permission_id FROM tenant_role_permission WHERE role_id = #{roleId} AND tenant_id = #{tenantId}")

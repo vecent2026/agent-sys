@@ -7,6 +7,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.security.Key;
 import java.util.*;
@@ -169,7 +170,12 @@ public class JwtUtil {
     public List<String> getAuthorities(Claims claims) {
         Object val = claims.get("authorities");
         if (val instanceof List) {
-            return (List<String>) val;
+            return ((List<?>) val).stream()
+                    .filter(Objects::nonNull)
+                    .map(Object::toString)
+                    .filter(StringUtils::hasText)
+                    .distinct()
+                    .collect(Collectors.toList());
         }
         return Collections.emptyList();
     }

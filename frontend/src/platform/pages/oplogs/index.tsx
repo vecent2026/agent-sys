@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Table, Button, Space, Tag, Card, Form, Input, Select, DatePicker,
+  Table, Button, Space, Tag, Card, Form, Input, Select, DatePicker, Drawer, Descriptions,
 } from 'antd';
 import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import { getLogPage, type LogDoc, type LogQueryParams } from '../../api/logApi';
+import JsonViewer from '@/components/JsonViewer';
 
 const { RangePicker } = DatePicker;
 
@@ -14,6 +15,8 @@ const LogPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [pagination, setPagination] = useState({ page: 1, size: 20 });
   const [query, setQuery] = useState<LogQueryParams>({});
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [currentLog, setCurrentLog] = useState<LogDoc | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -36,8 +39,8 @@ const LogPage: React.FC = () => {
     const values = queryForm.getFieldsValue();
     const { timeRange, ...rest } = values;
     const q: LogQueryParams = { ...rest };
-    if (timeRange && timeRange[0]) q.startTime = timeRange[0].toISOString();
-    if (timeRange && timeRange[1]) q.endTime = timeRange[1].toISOString();
+    if (timeRange && timeRange[0]) q.startTime = timeRange[0].format('YYYY-MM-DD HH:mm:ss');
+    if (timeRange && timeRange[1]) q.endTime = timeRange[1].format('YYYY-MM-DD HH:mm:ss');
     setQuery(q);
     setPagination(p => ({ ...p, page: 1 }));
   };
@@ -45,6 +48,11 @@ const LogPage: React.FC = () => {
     queryForm.resetFields();
     setQuery({});
     setPagination(p => ({ ...p, page: 1 }));
+  };
+
+  const handleView = (record: LogDoc) => {
+    setCurrentLog(record);
+    setDetailVisible(true);
   };
 
   const columns: ColumnsType<LogDoc> = [
@@ -57,7 +65,7 @@ const LogPage: React.FC = () => {
       render: (val) => <Tag color={val === 'SUCCESS' ? 'green' : 'red'}>{val}</Tag>,
     },
     {
-      title: '耗时(ms)', dataIndex: 'duration', width: 90,
+      title: '耗时(ms)', dataIndex: 'costTime', width: 90,
       render: (val) => val ?? '-',
     },
     {
@@ -65,8 +73,8 @@ const LogPage: React.FC = () => {
       render: (val) => val ? dayjs(val).format('YYYY-MM-DD HH:mm:ss') : '-',
     },
     {
-      title: '错误信息', dataIndex: 'errorMsg', ellipsis: true,
-      render: (val) => val ? <span style={{ color: '#ff4d4f' }}>{val}</span> : '-',
+      title: '详情', key: 'actionBtn', width: 80,
+      render: (_, record) => <Button type="link" size="small" onClick={() => handleView(record)}>详情</Button>,
     },
   ];
 
@@ -115,6 +123,38 @@ const LogPage: React.FC = () => {
           }}
         />
       </Card>
+
+      <Drawer
+        title="操作日志详情"
+        width={900}
+        open={detailVisible}
+        onClose={() => setDetailVisible(false)}
+      >
+        {currentLog && (
+          <>
+            <Descriptions bordered size="small" column={2} style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="用户">{currentLog.username || '-'}</Descriptions.Item>
+              <Descriptions.Item label="状态">
+                <Tag color={currentLog.status === 'SUCCESS' ? 'green' : 'red'}>{currentLog.status}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="模块">{currentLog.module}</Descriptions.Item>
+              <Descriptions.Item label="操作">{currentLog.action}</Descriptions.Item>
+              <Descriptions.Item label="IP">{currentLog.ip || '-'}</Descriptions.Item>
+              <Descriptions.Item label="耗时">{currentLog.costTime ?? '-'} ms</Descriptions.Item>
+              <Descriptions.Item label="时间" span={2}>
+                {currentLog.createTime ? dayjs(currentLog.createTime).format('YYYY-MM-DD HH:mm:ss') : '-'}
+              </Descriptions.Item>
+            </Descriptions>
+
+            <h4>请求参数</h4>
+            <JsonViewer data={currentLog.params} />
+            <h4 style={{ marginTop: 16 }}>响应结果</h4>
+            <JsonViewer data={currentLog.result} />
+            <h4 style={{ marginTop: 16 }}>错误信息</h4>
+            <JsonViewer data={currentLog.errorMsg || '无错误'} />
+          </>
+        )}
+      </Drawer>
     </div>
   );
 };

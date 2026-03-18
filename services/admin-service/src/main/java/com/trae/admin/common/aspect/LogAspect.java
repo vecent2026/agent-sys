@@ -2,6 +2,7 @@ package com.trae.admin.common.aspect;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trae.admin.common.annotation.Log;
+import com.trae.admin.common.context.TenantContext;
 import com.trae.admin.common.security.CustomUserDetails;
 import com.trae.admin.common.security.JwtUtil;
 import com.trae.admin.common.utils.IpUtil;
@@ -9,6 +10,7 @@ import com.trae.admin.modules.log.entity.SysLogDocument;
 import com.trae.admin.modules.user.mapper.SysUserMapper;
 import com.trae.admin.modules.rbac.entity.SysPermission;
 import com.trae.admin.modules.rbac.mapper.SysPermissionMapper;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +25,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -122,6 +125,9 @@ public class LogAspect {
             }
 
             // Get request attributes
+            Claims jwtClaims = null;
+            Boolean isPlatform = null;
+            Long tenantId = null;
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes != null) {
                 // Request info
@@ -136,6 +142,28 @@ public class LogAspect {
                 }
 
                 sysLog.setIp(IpUtil.getIpAddress(request));
+
+                try {
+                    String authorizationHeader = request.getHeader("Authorization");
+                    if (StringUtils.hasText(authorizationHeader) && authorizationHeader.startsWith("Bearer ")) {
+                        jwtClaims = jwtUtil.extractAllClaims(authorizationHeader.substring(7));
+                        isPlatform = jwtUtil.isPlatformToken(jwtClaims);
+                        tenantId = jwtUtil.getTenantId(jwtClaims);
+                    }
+                } catch (Exception ignore) {
+                    // ignore bad/missing token for logging fallback
+                }
+
+                if (isPlatform == null) {
+                    String uri = request.getRequestURI();
+                    if (uri != null) {
+                        if (uri.startsWith("/api/platform/")) {
+                            isPlatform = true;
+                        } else if (uri.startsWith("/api/tenant/")) {
+                            isPlatform = false;
+                        }
+                    }
+                }
             } else {
                 // No request attributes, this might be a login event or other special case
                 // Set default IP for login events without request
@@ -144,15 +172,43 @@ public class LogAspect {
 
             // User info
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated() && !(authentication.getPrincipal() instanceof String)) {
+            if (authentication != null && authentication.isAuthenticated()) {
+                Object principal = authentication.getPrincipal();
                 try {
-                    CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-                    sysLog.setUserId(userDetails.getUserId());
-                    sysLog.setUsername(userDetails.getUsername());
-                } catch (Exception e) {
+                    if (principal instanceof CustomUserDetails userDetails) {
+                        sysLog.setUserId(userDetails.getUserId());
+                        sysLog.setUsername(userDetails.getUsername());
+                    } else if (principal instanceof String principalName && !"anonymousUser".equals(principalName)) {
+                        sysLog.setUsername(principalName);
+                    }
+                } catch (Exception ignore) {
                     // Ignore
                 }
             }
+
+            if (jwtClaims != null) {
+                if (sysLog.getUserId() == null) {
+                    sysLog.setUserId(jwtUtil.getUserId(jwtClaims));
+                }
+                if (!StringUtils.hasText(sysLog.getUsername())) {
+                    sysLog.setUsername(jwtClaims.getSubject());
+                }
+                if (isPlatform == null) {
+                    isPlatform = jwtUtil.isPlatformToken(jwtClaims);
+                }
+                if (tenantId == null) {
+                    tenantId = jwtUtil.getTenantId(jwtClaims);
+                }
+            }
+
+            if (tenantId == null) {
+                tenantId = TenantContext.getTenantId();
+            }
+            if (isPlatform == null) {
+                isPlatform = tenantId == null;
+            }
+            sysLog.setIsPlatform(isPlatform);
+            sysLog.setTenantId(Boolean.TRUE.equals(isPlatform) ? null : tenantId);
 
             // Params
             Object[] args = point.getArgs();

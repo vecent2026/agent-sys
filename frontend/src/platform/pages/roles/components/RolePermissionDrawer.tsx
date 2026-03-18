@@ -1,41 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Drawer, Tree, Button, message, Spin } from 'antd';
-import type { DataNode } from 'antd/es/tree';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getRolePermissions, assignRolePermissions } from '../../../api/roleApi';
-import { getPermissionTree, type PermissionVo } from '../../../api/permissionApi';
+import { getPermissionTree } from '../../../api/permissionApi';
+import { normalizeCheckedKeys, toCheckablePermissionTreeData, toGrantableCheckedIds } from '@/utils/permissionTree';
 
 interface RolePermissionDrawerProps {
   open: boolean;
   onClose: () => void;
   roleId: number | null;
   roleName?: string;
-}
-
-function collectLeafIds(nodes: PermissionVo[]): number[] {
-  const ids: number[] = [];
-  const walk = (list: PermissionVo[]) => {
-    for (const n of list) {
-      if (n.permissionKey) ids.push(n.id);
-      if (n.children?.length) walk(n.children);
-    }
-  };
-  walk(nodes);
-  return ids;
-}
-
-function toTreeData(nodes: PermissionVo[]): DataNode[] {
-  return nodes.map((n) => {
-    const hasKey = !!n.permissionKey;
-    const children = n.children?.length ? toTreeData(n.children) : undefined;
-    return {
-      key: String(n.id),
-      title: n.name || n.permissionKey || `节点${n.id}`,
-      children: children?.length ? children : undefined,
-      checkable: hasKey,
-      disabled: !hasKey,
-    };
-  });
 }
 
 const RolePermissionDrawer: React.FC<RolePermissionDrawerProps> = ({
@@ -45,7 +19,6 @@ const RolePermissionDrawer: React.FC<RolePermissionDrawerProps> = ({
   roleName,
 }) => {
   const [checkedKeys, setCheckedKeys] = useState<React.Key[]>([]);
-  const [halfCheckedKeys, setHalfCheckedKeys] = useState<React.Key[]>([]);
   const queryClient = useQueryClient();
 
   const { data: allPerms, isLoading: loadingPerms } = useQuery({
@@ -78,19 +51,16 @@ const RolePermissionDrawer: React.FC<RolePermissionDrawerProps> = ({
     return Array.isArray(allPerms) ? allPerms : (allPerms as any).children || [];
   }, [allPerms]);
 
-  const treeData = useMemo(() => toTreeData(allPermsList), [allPermsList]);
+  const treeData = useMemo(() => toCheckablePermissionTreeData(allPermsList), [allPermsList]);
 
   useEffect(() => {
     if (open && rolePermIds && Array.isArray(rolePermIds)) {
       setCheckedKeys(rolePermIds.map(String));
-      setHalfCheckedKeys([]);
     }
   }, [open, rolePermIds]);
 
   const handleSave = () => {
-    const allSet = new Set([...checkedKeys, ...halfCheckedKeys].map(String));
-    const leafIds = collectLeafIds(allPermsList).filter((id) => allSet.has(String(id)));
-    saveMutation.mutate(leafIds);
+    saveMutation.mutate(toGrantableCheckedIds(allPermsList, checkedKeys));
   };
 
   const loading = loadingPerms || loadingRole;
@@ -126,11 +96,9 @@ const RolePermissionDrawer: React.FC<RolePermissionDrawerProps> = ({
           </p>
           <Tree
             checkable
-            checkedKeys={{ checked: checkedKeys, halfChecked: halfCheckedKeys }}
+            checkedKeys={checkedKeys}
             onCheck={(keys) => {
-              const k = keys as { checked?: React.Key[]; halfChecked?: React.Key[] };
-              setCheckedKeys(Array.isArray(k) ? k : (k.checked || []));
-              setHalfCheckedKeys(Array.isArray(k) ? [] : (k.halfChecked || []));
+              setCheckedKeys(normalizeCheckedKeys(keys as any));
             }}
             treeData={treeData}
             defaultExpandAll

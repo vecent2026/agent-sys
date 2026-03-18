@@ -3,7 +3,7 @@ import type { Log, LogQuery } from '@/types/log';
 import type { PageResult } from '@/types/api';
 
 export const getLogList = async (params: LogQuery) => {
-  const res = await request.get<any>('/api/logs', { params });
+  const res = await request.get<any>('/api/tenant/logs', { params });
   return {
     records: res.content,
     total: res.totalElements,

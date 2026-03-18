@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Drawer, Tree, Button, message, Spin } from 'antd';
-import type { DataNode } from 'antd/es/tree';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTenantPermissions, updateTenantPermissions } from '../../../api/tenantApi';
 import { getPermissionTree, type PermissionVo } from '../../../api/permissionApi';
+import { normalizeCheckedKeys, toCheckablePermissionTreeData, toGrantableCheckedIds } from '@/utils/permissionTree';
 
 interface TenantPermissionDrawerProps {
   open: boolean;
@@ -30,32 +30,6 @@ function filterTenantScopeNodes(nodes: PermissionVo[]): PermissionVo[] {
   return result;
 }
 
-function collectLeafIds(nodes: PermissionVo[]): number[] {
-  const ids: number[] = [];
-  const walk = (list: PermissionVo[]) => {
-    for (const n of list) {
-      if (n.permissionKey) ids.push(n.id);
-      if (n.children?.length) walk(n.children);
-    }
-  };
-  walk(nodes);
-  return ids;
-}
-
-function toTreeData(nodes: PermissionVo[]): DataNode[] {
-  return nodes.map((n) => {
-    const hasKey = !!n.permissionKey;
-    const children = n.children?.length ? toTreeData(n.children) : undefined;
-    return {
-      key: String(n.id),
-      title: n.name || n.permissionKey || `节点${n.id}`,
-      children: children?.length ? children : undefined,
-      checkable: hasKey,
-      disabled: !hasKey,
-    };
-  });
-}
-
 const TenantPermissionDrawer: React.FC<TenantPermissionDrawerProps> = ({
   open,
   onClose,
@@ -63,7 +37,6 @@ const TenantPermissionDrawer: React.FC<TenantPermissionDrawerProps> = ({
   tenantName,
 }) => {
   const [checkedKeys, setCheckedKeys] = useState<React.Key[]>([]);
-  const [halfCheckedKeys, setHalfCheckedKeys] = useState<React.Key[]>([]);
   const queryClient = useQueryClient();
 
   const { data: allPerms, isLoading: loadingPerms } = useQuery({
@@ -97,19 +70,16 @@ const TenantPermissionDrawer: React.FC<TenantPermissionDrawerProps> = ({
     return filterTenantScopeNodes(list);
   }, [allPerms]);
 
-  const treeData = useMemo(() => toTreeData(tenantScopeTree), [tenantScopeTree]);
+  const treeData = useMemo(() => toCheckablePermissionTreeData(tenantScopeTree), [tenantScopeTree]);
 
   useEffect(() => {
     if (open && tenantPermIds && Array.isArray(tenantPermIds)) {
       setCheckedKeys(tenantPermIds.map(String));
-      setHalfCheckedKeys([]);
     }
   }, [open, tenantPermIds]);
 
   const handleSave = () => {
-    const allSet = new Set([...checkedKeys, ...halfCheckedKeys].map(String));
-    const leafIds = collectLeafIds(tenantScopeTree).filter((id) => allSet.has(String(id)));
-    saveMutation.mutate(leafIds);
+    saveMutation.mutate(toGrantableCheckedIds(tenantScopeTree, checkedKeys));
   };
 
   const loading = loadingPerms || loadingTenant;
@@ -145,11 +115,9 @@ const TenantPermissionDrawer: React.FC<TenantPermissionDrawerProps> = ({
           </p>
           <Tree
             checkable
-            checkedKeys={{ checked: checkedKeys, halfChecked: halfCheckedKeys }}
+            checkedKeys={checkedKeys}
             onCheck={(keys) => {
-              const k = keys as { checked?: React.Key[]; halfChecked?: React.Key[] };
-              setCheckedKeys(Array.isArray(k) ? k : (k.checked || []));
-              setHalfCheckedKeys(Array.isArray(k) ? [] : (k.halfChecked || []));
+              setCheckedKeys(normalizeCheckedKeys(keys as any));
             }}
             treeData={treeData}
             defaultExpandAll

@@ -36,6 +36,12 @@ public class LogServiceImpl implements LogService {
         if (queryDto.getUserId() != null) {
             criteria = criteria.and("userId").is(queryDto.getUserId());
         }
+        if (queryDto.getTenantId() != null) {
+            criteria = criteria.and("tenantId").is(queryDto.getTenantId());
+        }
+        if (queryDto.getIsPlatform() != null) {
+            criteria = criteria.and("isPlatform").is(queryDto.getIsPlatform());
+        }
         if (StringUtils.hasText(queryDto.getUsername())) {
             criteria = criteria.and("username").is(queryDto.getUsername());
         }
@@ -57,7 +63,7 @@ public class LogServiceImpl implements LogService {
                 // Use Date objects directly for between query
                 criteria = criteria.and("createTime").between(start, end);
             } catch (ParseException e) {
-                throw new BusinessException("时间格式错误");
+                throw new BusinessException("时间格式错误，期望格式：yyyy-MM-dd HH:mm:ss");
             }
         }
 

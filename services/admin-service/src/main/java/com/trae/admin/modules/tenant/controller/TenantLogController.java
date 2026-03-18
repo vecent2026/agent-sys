@@ -1,5 +1,7 @@
-package com.trae.admin.modules.platform.controller;
+package com.trae.admin.modules.tenant.controller;
 
+import com.trae.admin.common.context.TenantContext;
+import com.trae.admin.common.exception.BusinessException;
 import com.trae.admin.common.result.Result;
 import com.trae.admin.modules.log.dto.LogQueryDto;
 import com.trae.admin.modules.log.entity.SysLogDocument;
@@ -13,20 +15,24 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "平台操作日志", description = "平台端操作日志查询")
+@Tag(name = "租户操作日志", description = "租户端操作日志查询")
 @RestController
-@RequestMapping("/api/platform/logs")
+@RequestMapping("/api/tenant/logs")
 @RequiredArgsConstructor
-public class PlatformLogController {
+public class TenantLogController {
 
     private final LogService logService;
 
-    @Operation(summary = "分页查询操作日志")
+    @Operation(summary = "分页查询当前租户操作日志")
     @GetMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasAuthority('platform:log:list')")
+    @PreAuthorize("hasAuthority('tenant:log:list')")
     public Result<Page<SysLogDocument>> page(LogQueryDto queryDto) {
-        queryDto.setIsPlatform(true);
-        queryDto.setTenantId(null);
+        Long tenantId = TenantContext.getTenantId();
+        if (tenantId == null) {
+            throw new BusinessException("租户上下文缺失");
+        }
+        queryDto.setIsPlatform(false);
+        queryDto.setTenantId(tenantId);
         return Result.success(logService.page(queryDto));
     }
 }
