@@ -236,11 +236,23 @@ VALUES (1, 'default', '默认租户', 1, 0);
 -- ── 为默认租户授权所有 scope=tenant 的权限节点 ──
 INSERT INTO `tenant_permission` (`tenant_id`, `permission_id`)
 SELECT 1, `id` FROM `platform_permission` WHERE `scope` = 'tenant' AND `is_deleted` = 0;
+
+-- ── 默认租户内置超管角色（tenant_admin） ──
+INSERT INTO `tenant_role` (`tenant_id`, `role_name`, `role_key`, `is_builtin`, `is_super`, `description`)
+VALUES (1, '租户超级管理员', 'tenant_admin', 1, 1, '内置租户超管角色，不可删除/编辑');
+
+-- ── 为 tenant_admin 同步租户全部可用权限 ──
+INSERT INTO `tenant_role_permission` (`tenant_id`, `role_id`, `permission_id`)
+SELECT 1, tr.`id`, tp.`permission_id`
+FROM `tenant_role` tr
+JOIN `tenant_permission` tp ON tp.`tenant_id` = tr.`tenant_id`
+WHERE tr.`tenant_id` = 1 AND tr.`role_key` = 'tenant_admin';
 ```
 
 **内置角色规则**：
 - `is_builtin=1` 的角色：不可删除、不可修改 `role_name`/`role_key`/`is_super`/`is_builtin`
 - 超管角色的权限勾选仅为前端展示效果（展示为全勾选），后端不依赖 `platform_role_permission` 做校验
+- 租户侧同样适用：`tenant_admin`（`is_builtin=1,is_super=1`）不可删除/编辑，且默认拥有租户全部授权节点
 
 **内置用户规则**：
 - `is_builtin=1` 的用户：不可删除、不可禁用、不可修改其角色分配

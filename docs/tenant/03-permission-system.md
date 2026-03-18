@@ -344,10 +344,15 @@ public class TenantPermissionCacheService {
 | 操作 | 是否允许 | 限制条件 |
 |------|---------|---------|
 | 创建角色 | ✅ | 角色 `tenant_id` 自动设为当前 `tenantId` |
-| 删除角色 | ✅ | 角色 `tenant_id` 必须等于当前 `tenantId`；有用户绑定时禁止删除 |
+| 删除角色 | ✅ | 角色 `tenant_id` 必须等于当前 `tenantId`；有用户绑定时禁止删除；`is_builtin=1` 内置角色禁止删除 |
 | 为角色分配权限 | ✅ | 所选权限节点必须全部在 `tenant_permission` 授权范围内 |
 | 为用户分配角色 | ✅ | 角色必须属于当前租户；写入 `tenant_user_role` |
 | 查看其他租户角色 | ❌ | MyBatis-Plus 租户插件自动过滤 |
+
+补充规则（超管保护）：
+- 每个租户默认存在内置超管角色 `tenant_admin`（`is_builtin=1,is_super=1`）
+- 对成员做角色覆盖更新时，若该成员是当前租户最后一名超管，不允许移除超管角色
+- 删除成员时，若该成员是当前租户最后一名超管，不允许删除
 
 ### 4.2 角色-权限分配校验（服务层强校验）
 
@@ -407,9 +412,9 @@ public void assignRolePermissions(Long tenantId, Long roleId, List<Long> permiss
   1. 创建 platform_tenant 记录（admin-service）
   2. 创建/查找 app_user（通过 user-service RPC，手机号唯一）
   3. 建立 tenant_user 成员关系（通过 user-service RPC）
-  4. 创建"租户管理员"角色（tenant_role，tenant_id = 新租户ID）
+  4. 保障存在内置"租户管理员"角色（`tenant_admin`，`is_builtin=1,is_super=1`）
   5. 为该角色分配租户全部授权节点（取 tenant_permission 中的完整范围）
-  6. 创建 tenant_user_role（user_id, tenant_id, role_id）
+  6. 创建 tenant_user_role（user_id, tenant_id, role_id），默认绑定到 `tenant_admin`
 ```
 
 ### 5.2 事务处理
@@ -437,23 +442,23 @@ public void createTenantWithAdmin(CreateTenantDto dto) {
     // Step 3: 建立用户-租户成员关系（RPC 调用 user-service，写入 tenant_user）
     userServiceClient.addUserToTenant(userId, tenantId, "PLATFORM_CREATE");
 
-    // Step 4: 创建默认"租户管理员"角色（admin-service 本地 DB）
-    TenantRole adminRole = new TenantRole();
-    adminRole.setTenantId(tenantId);
-    adminRole.setRoleName("租户管理员");
-    adminRole.setRoleKey("tenant_admin");
-    tenantRoleMapper.insert(adminRole);
+    // Step 4: 保障存在默认"租户管理员"角色（admin-service 本地 DB）
+    Long adminRoleId = tenantRoleMapper.findOrCreateBuiltinTenantAdmin(tenantId);
 
     // Step 5: 为角色分配租户可用的全部权限节点
     List<Long> permIds = tenantPermissionMapper.selectPermissionIds(tenantId);
     if (!permIds.isEmpty()) {
-        tenantRolePermissionMapper.batchInsert(tenantId, adminRole.getId(), permIds);
+        tenantRolePermissionMapper.batchInsert(tenantId, adminRoleId, permIds);
     }
 
     // Step 6: 将用户与角色关联（写入 tenant_user_role，admin-service 本地 DB）
-    tenantUserRoleMapper.insert(userId, tenantId, adminRole.getId());
+    tenantUserRoleMapper.insert(userId, tenantId, adminRoleId);
 }
 ```
+
+租户侧超管身份判定：
+- 以本地 `tenant_user_role + tenant_role` 为准（`tenant_role.is_super=1` 或 `role_key='tenant_admin'`）
+- 不依赖 user-service 的远程 `tenant-admin` 判定接口
 
 ---
 
