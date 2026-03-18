@@ -18,6 +18,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.core.ParameterizedTypeReference;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -74,19 +77,37 @@ class TenantAuthServiceImplTest {
                 .thenReturn(resp);
     }
 
+    @SuppressWarnings("unchecked")
+    private void mockGetUserTenants(Long userId, List<Long> tenantIds) {
+        ResponseEntity<List<Long>> resp = ResponseEntity.ok(tenantIds);
+        when(restTemplate.exchange(
+                contains("/api/internal/users/" + userId + "/tenants"),
+                eq(HttpMethod.GET),
+                isNull(),
+                any(ParameterizedTypeReference.class)
+        )).thenReturn((ResponseEntity) resp);
+    }
+
+    private void mockCheckTenantAdmin(Long userId, Long tenantId, boolean isAdmin) {
+        when(restTemplate.exchange(
+                contains("/api/internal/users/" + userId + "/tenant-admin?tenantId=" + tenantId),
+                eq(HttpMethod.GET),
+                isNull(),
+                eq(Boolean.class)
+        )).thenReturn(ResponseEntity.ok(isAdmin));
+    }
+
     // ── 单租户登录 ─────────────────────────────────────────
 
     @Test
     void login_singleTenant_returnsAccessToken() {
         mockVerifyUser(10L, "13800000001");
-
-        TenantUserRole role = roleEntry(10L, 1L, 100L);
-        when(tenantUserRoleMapper.selectList(any(LambdaQueryWrapper.class)))
-                .thenReturn(List.of(role));
+        mockGetUserTenants(10L, List.of(1L));
+        mockCheckTenantAdmin(10L, 1L, false);
         when(platformTenantMapper.selectById(1L)).thenReturn(activeTenant(1L, "默认租户"));
         when(tenantRolePermissionMapper.selectUserPermissionKeys(10L, 1L))
                 .thenReturn(List.of("tenant:role:list"));
-        when(jwtUtil.createTenantToken(eq(10L), eq("13800000001"), eq(1L), eq(0), any()))
+        when(jwtUtil.createTenantToken(eq(10L), eq("13800000001"), eq(1L), eq(0), anyBoolean(), any()))
                 .thenReturn("acc");
         when(jwtUtil.createTenantRefreshToken(any(), any(), any(), anyInt())).thenReturn("ref");
 
@@ -107,11 +128,7 @@ class TenantAuthServiceImplTest {
     @Test
     void login_multiTenant_returnsPreTokenAndList() {
         mockVerifyUser(10L, "13800000001");
-
-        TenantUserRole r1 = roleEntry(10L, 1L, 100L);
-        TenantUserRole r2 = roleEntry(10L, 2L, 200L);
-        when(tenantUserRoleMapper.selectList(any(LambdaQueryWrapper.class)))
-                .thenReturn(List.of(r1, r2));
+        mockGetUserTenants(10L, List.of(1L, 2L));
         when(platformTenantMapper.selectById(1L)).thenReturn(activeTenant(1L, "租户A"));
         when(platformTenantMapper.selectById(2L)).thenReturn(activeTenant(2L, "租户B"));
         when(jwtUtil.createPreToken(eq(10L), eq("13800000001"), any())).thenReturn("pre_token");
@@ -135,7 +152,7 @@ class TenantAuthServiceImplTest {
     @Test
     void login_noTenant_throwsException() {
         mockVerifyUser(10L, "13800000001");
-        when(tenantUserRoleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+        mockGetUserTenants(10L, List.of());
 
         TenantLoginBody body = new TenantLoginBody();
         body.setMobile("13800000001");
@@ -156,12 +173,11 @@ class TenantAuthServiceImplTest {
         when(redisUtil.hasKey("pre_token:jti-abc")).thenReturn(true);
         when(jwtUtil.getUserId(claims)).thenReturn(10L);
         when(jwtUtil.getMobile(claims)).thenReturn("13800000001");
-
-        when(tenantUserRoleMapper.selectRoleIdsByUserAndTenant(10L, 1L))
-                .thenReturn(List.of(100L));
+        mockGetUserTenants(10L, List.of(1L));
+        mockCheckTenantAdmin(10L, 1L, false);
         when(platformTenantMapper.selectById(1L)).thenReturn(activeTenant(1L, "默认租户"));
         when(tenantRolePermissionMapper.selectUserPermissionKeys(10L, 1L)).thenReturn(List.of());
-        when(jwtUtil.createTenantToken(any(), any(), any(), anyInt(), any())).thenReturn("acc2");
+        when(jwtUtil.createTenantToken(any(), any(), any(), anyInt(), anyBoolean(), any())).thenReturn("acc2");
         when(jwtUtil.createTenantRefreshToken(any(), any(), any(), anyInt())).thenReturn("ref2");
 
         TenantSelectBody body = new TenantSelectBody();
@@ -200,8 +216,7 @@ class TenantAuthServiceImplTest {
         when(redisUtil.hasKey("pre_token:jti-abc")).thenReturn(true);
         when(jwtUtil.getUserId(claims)).thenReturn(10L);
         when(jwtUtil.getMobile(claims)).thenReturn("13800000001");
-        when(tenantUserRoleMapper.selectRoleIdsByUserAndTenant(10L, 99L))
-                .thenReturn(List.of()); // 不属于该租户
+        mockGetUserTenants(10L, List.of(1L)); // 不包含 99
 
         TenantSelectBody body = new TenantSelectBody();
         body.setPreToken("pre");
@@ -223,9 +238,10 @@ class TenantAuthServiceImplTest {
         when(jwtUtil.getMobile(claims)).thenReturn("13800000001");
         when(jwtUtil.getTenantVersion(claims)).thenReturn(0);
         when(redisUtil.get("tenant:version:1")).thenReturn("0");
+        mockCheckTenantAdmin(10L, 1L, false);
         when(platformTenantMapper.selectById(1L)).thenReturn(activeTenant(1L, "默认租户"));
         when(tenantRolePermissionMapper.selectUserPermissionKeys(10L, 1L)).thenReturn(List.of());
-        when(jwtUtil.createTenantToken(any(), any(), any(), anyInt(), any())).thenReturn("newAcc");
+        when(jwtUtil.createTenantToken(any(), any(), any(), anyInt(), anyBoolean(), any())).thenReturn("newAcc");
 
         Map<String, Object> result = tenantAuthService.refreshToken("rt");
         assertEquals("newAcc", result.get("accessToken"));
@@ -250,9 +266,12 @@ class TenantAuthServiceImplTest {
 
     @Test
     void logout_addsTokenToBlacklist() {
+        Claims claims = mock(Claims.class);
         when(jwtUtil.getExpirationFromToken("t"))
                 .thenReturn(new Date(System.currentTimeMillis() + 3_600_000));
+        when(jwtUtil.extractAllClaims("t")).thenReturn(claims);
+        when(jwtUtil.getJti(claims)).thenReturn("jti-t");
         tenantAuthService.logout("Bearer t");
-        verify(redisUtil).set(eq("blacklist:t"), eq("1"), anyLong(), eq(TimeUnit.MILLISECONDS));
+        verify(redisUtil).set(eq("blacklist:jti-t"), eq("1"), anyLong(), eq(TimeUnit.MILLISECONDS));
     }
 }

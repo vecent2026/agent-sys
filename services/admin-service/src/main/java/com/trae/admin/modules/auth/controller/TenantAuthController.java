@@ -34,13 +34,13 @@ public class TenantAuthController {
     }
 
     @Operation(summary = "选择租户（preToken 换正式 JWT，一次性）")
-    @PostMapping("/select")
+    @PostMapping({"/select", "/select-tenant"})
     public Result<Map<String, Object>> select(@RequestBody TenantSelectBody body) {
         return Result.success(tenantAuthService.selectTenant(body));
     }
 
     @Operation(summary = "切换租户（当前 JWT 换新租户 JWT）")
-    @PostMapping("/switch")
+    @PostMapping({"/switch", "/switch-tenant"})
     public Result<Map<String, Object>> switchTenant(@RequestBody TenantSwitchBody body) {
         return Result.success(tenantAuthService.switchTenant(body));
     }
@@ -68,5 +68,11 @@ public class TenantAuthController {
     @GetMapping("/permissions")
     public Result<List<String>> permissions() {
         return Result.success(tenantAuthService.getCurrentUserPermissions());
+    }
+
+    @Operation(summary = "获取当前用户可选租户列表")
+    @GetMapping("/my-tenants")
+    public Result<List<Map<String, Object>>> myTenants() {
+        return Result.success(tenantAuthService.getMyTenants());
     }
 }

@@ -77,16 +77,16 @@ class UserServiceImplTest {
         user.setId(userId);
         user.setUsername("testuser");
         user.setStatus(1);
+        user.setTokenVersion(0);
         
         when(sysUserMapper.selectById(eq(userId))).thenReturn(user);
-        when(redisUtil.increment(eq("auth:version:testuser"))).thenReturn(1L);
         
         // Act
         userService.changeStatus(userId, newStatus);
         
         // Assert
-        verify(sysUserMapper).updateById(any(SysUser.class));
-        verify(redisUtil).increment(eq("auth:version:testuser"));
+        verify(sysUserMapper, times(2)).updateById(any(SysUser.class));
+        verify(redisUtil).set(eq("platform:version:1"), eq("1"));
     }
 
     @Test

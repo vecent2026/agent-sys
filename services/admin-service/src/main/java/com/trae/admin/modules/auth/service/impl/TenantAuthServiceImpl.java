@@ -73,7 +73,9 @@ public class TenantAuthServiceImpl implements TenantAuthService {
 
         if (tenantIds.size() == 1) {
             // 单租户：直接签发 JWT
-            return buildTenantTokenResponse(userId, mobile, tenantIds.get(0));
+            Map<String, Object> direct = buildTenantTokenResponse(userId, mobile, tenantIds.get(0));
+            direct.put("loginType", "DIRECT");
+            return direct;
         }
 
         // 多租户：签发 preToken，返回租户列表供前端选择
@@ -86,6 +88,7 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         redisUtil.set("pre_token:" + jti, "1", 5, TimeUnit.MINUTES);
 
         Map<String, Object> result = new HashMap<>();
+        result.put("loginType", "SELECT_TENANT");
         result.put("preToken", preToken);
         result.put("tenants", tenantList);
         return result;
@@ -152,9 +155,9 @@ public class TenantAuthServiceImpl implements TenantAuthService {
             throw new BusinessException("当前用户信息异常");
         }
 
-        // 验证新租户成员资格
-        List<Long> roleIds = tenantUserRoleMapper.selectRoleIdsByUserAndTenant(userId, newTenantId);
-        if (roleIds.isEmpty()) {
+        // 验证新租户成员资格（仅要求是成员，不要求必须分配角色）
+        List<Long> memberTenants = getUserTenants(userId);
+        if (!memberTenants.contains(newTenantId)) {
             throw new BusinessException("用户不属于目标租户");
         }
 
@@ -271,7 +274,43 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         Long userId = findUserIdByMobile(mobile);
         if (userId == null) return Collections.emptyList();
 
+        boolean isTenantAdmin = checkTenantAdmin(userId, tenantId);
+        if (isTenantAdmin) {
+            // 租户管理员拥有租户侧全量权限（兼容历史 app:* 与新 tenant:*）
+            return sysTenantPermissionKeys();
+        }
+
         return tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId);
+    }
+
+    @Override
+    public List<Map<String, Object>> getMyTenants() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return Collections.emptyList();
+        }
+        String mobile = auth.getName();
+        Long currentTenantId = TenantContext.getTenantId();
+        Long userId = findUserIdByMobile(mobile);
+        if (userId == null) {
+            return Collections.emptyList();
+        }
+        List<Long> tenantIds = getUserTenants(userId);
+        if (tenantIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return tenantIds.stream()
+                .map(tenantId -> {
+                    PlatformTenant t = platformTenantMapper.selectById(tenantId);
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", tenantId);
+                    m.put("name", t != null ? t.getTenantName() : "");
+                    m.put("tenantCode", t != null ? t.getTenantCode() : "");
+                    m.put("isCurrent", Objects.equals(currentTenantId, tenantId));
+                    m.put("memberStatus", 1);
+                    return m;
+                })
+                .collect(Collectors.toList());
     }
 
     // ──────────────────────────────────────────────────────
@@ -410,6 +449,21 @@ public class TenantAuthServiceImpl implements TenantAuthService {
     private Long findUserIdByMobileAndTenant(String mobile, Long tenantId) {
         // 先通过 user-service 获取 userId
         return findUserIdByMobile(mobile);
+    }
+
+    private List<String> sysTenantPermissionKeys() {
+        return Arrays.asList(
+                "tenant:member:list", "tenant:member:add", "tenant:member:remove", "tenant:member:disable", "tenant:member:role",
+                "tenant:appuser:list", "tenant:appuser:query", "tenant:appuser:edit", "tenant:appuser:export",
+                "tenant:tag:list", "tenant:tag:add", "tenant:tag:edit", "tenant:tag:remove", "tenant:tag:category",
+                "tenant:field:list", "tenant:field:add", "tenant:field:edit", "tenant:field:remove",
+                "tenant:role:list", "tenant:role:add", "tenant:role:edit", "tenant:role:remove", "tenant:role:assign",
+                "tenant:log:list",
+                // 兼容当前系统仍在使用的历史键
+                "app:user:list", "app:user:view", "app:user:status", "app:user:tag", "app:user:export", "app:user:import",
+                "app:tag:list", "app:tag:add", "app:tag:edit", "app:tag:delete", "app:tag:status",
+                "app:field:list", "app:field:add", "app:field:edit", "app:field:remove", "app:field:status"
+        );
     }
 
     private Long toLong(Object val) {

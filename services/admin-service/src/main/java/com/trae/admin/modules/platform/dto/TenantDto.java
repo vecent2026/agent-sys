@@ -41,4 +41,17 @@ public class TenantDto {
     @Min(value = 1, message = "最大用户数至少为1")
     @Max(value = 100000, message = "最大用户数不超过100000")
     private Integer maxUsers;
+
+    /** 创建租户时可选：初始化管理员信息 */
+    private AdminUserDto adminUser;
+
+    @Data
+    public static class AdminUserDto {
+        @NotBlank(message = "管理员手机号不能为空")
+        @Pattern(regexp = "^1[3-9]\\d{9}$", message = "请输入有效的11位手机号")
+        private String mobile;
+
+        @Size(max = 50, message = "管理员昵称不超过50个字符")
+        private String nickname;
+    }
 }

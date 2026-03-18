@@ -40,7 +40,12 @@ public class SecurityConfig {
                 // 平台端认证（用户名+密码）
                 .requestMatchers("/api/platform/auth/login", "/api/platform/auth/refresh").permitAll()
                 // 租户端认证（手机号+密码）
-                .requestMatchers("/api/tenant/auth/login", "/api/tenant/auth/select", "/api/tenant/auth/refresh").permitAll()
+                .requestMatchers(
+                        "/api/tenant/auth/login",
+                        "/api/tenant/auth/select",
+                        "/api/tenant/auth/select-tenant",
+                        "/api/tenant/auth/refresh"
+                ).permitAll()
                 // 服务间内部接口（由网关/IP 白名单保护）
                 .requestMatchers("/api/internal/**").permitAll()
                 // 兼容旧认证接口

@@ -6,6 +6,7 @@ import com.trae.admin.modules.platform.dto.TenantQueryDto;
 import com.trae.admin.modules.platform.vo.TenantVo;
 
 import java.util.List;
+import java.util.Map;
 
 public interface PlatformTenantService {
 
@@ -26,4 +27,10 @@ public interface PlatformTenantService {
     List<Long> getPermissionIds(Long tenantId);
 
     void updatePermissions(Long tenantId, List<Long> permissionIds);
+
+    boolean checkCodeAvailable(String code, Long excludeId);
+
+    Map<String, Object> getStats(Long tenantId);
+
+    List<Map<String, Object>> listMembers(Long tenantId);
 }

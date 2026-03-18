@@ -40,4 +40,7 @@ public interface TenantAuthService {
 
     /** 获取当前租户用户权限 key 列表 */
     List<String> getCurrentUserPermissions();
+
+    /** 获取当前用户可选租户列表 */
+    List<Map<String, Object>> getMyTenants();
 }

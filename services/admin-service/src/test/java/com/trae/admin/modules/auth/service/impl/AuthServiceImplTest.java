@@ -8,6 +8,7 @@ import com.trae.admin.modules.rbac.mapper.SysPermissionMapper;
 import com.trae.admin.modules.rbac.service.PermissionService;
 import com.trae.admin.modules.user.entity.SysUser;
 import com.trae.admin.modules.user.mapper.SysUserMapper;
+import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -80,14 +81,17 @@ class AuthServiceImplTest {
 
     @Test
     void logout_invalidatesToken() {
+        Claims claims = mock(Claims.class);
         when(jwtUtil.getUsernameFromToken("mytoken")).thenReturn("admin");
         when(jwtUtil.getExpirationFromToken("mytoken"))
                 .thenReturn(new Date(System.currentTimeMillis() + 3_600_000));
+        when(jwtUtil.extractAllClaims("mytoken")).thenReturn(claims);
+        when(jwtUtil.getJti(claims)).thenReturn("jti-mytoken");
 
         authService.logout("Bearer mytoken");
 
         verify(redisUtil).delete("auth:refresh:admin");
-        verify(redisUtil).set(eq("blacklist:mytoken"), eq("1"), anyLong(), eq(TimeUnit.MILLISECONDS));
+        verify(redisUtil).set(eq("blacklist:jti-mytoken"), eq("1"), anyLong(), eq(TimeUnit.MILLISECONDS));
     }
 
     @Test

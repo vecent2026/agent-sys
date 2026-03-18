@@ -79,7 +79,7 @@ public class TenantMemberController {
 
     @Operation(summary = "为成员分配角色")
     @PutMapping("/{userId}/roles")
-    @PreAuthorize("hasAuthority('tenant:member:edit')")
+    @PreAuthorize("hasAuthority('tenant:member:role')")
     public Result<Void> assignRoles(@PathVariable Long userId,
                                     @RequestBody Map<String, List<Long>> body) {
         Long tenantId = TenantContext.getTenantId();

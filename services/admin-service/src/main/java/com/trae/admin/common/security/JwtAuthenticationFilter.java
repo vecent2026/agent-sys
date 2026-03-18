@@ -32,11 +32,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-
         try {
             final String authorizationHeader = request.getHeader("Authorization");
 
             if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+                chain.doFilter(request, response);
                 return;
             }
 
@@ -45,17 +45,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 claims = jwtUtil.extractAllClaims(jwt);
             } catch (Exception e) {
+                chain.doFilter(request, response);
                 return;
             }
 
-            // 跳过 preToken（仅用于选租户，不需要 SecurityContext）
+            // preToken 仅允许用于选择租户接口
             if (jwtUtil.isPreToken(claims)) {
+                String uri = request.getRequestURI();
+                if (!"/api/tenant/auth/select".equals(uri) && !"/api/tenant/auth/select-tenant".equals(uri)) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "临时 Token 仅可用于选择租户");
+                    return;
+                }
+                chain.doFilter(request, response);
                 return;
             }
 
             // 黑名单检查
             String jti = jwtUtil.getJti(claims);
             if (jti != null && redisUtil.hasKey("blacklist:" + jti)) {
+                chain.doFilter(request, response);
                 return;
             }
 
@@ -67,6 +75,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 int tokenVersion = jwtUtil.getTokenVersion(claims);
                 String redisVersion = redisUtil.get("platform:version:" + userId);
                 if (redisVersion != null && Integer.parseInt(redisVersion) != tokenVersion) {
+                    chain.doFilter(request, response);
                     return;
                 }
                 // 平台端不设 TenantContext
@@ -76,6 +85,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 int tenantVersion = jwtUtil.getTenantVersion(claims);
                 String redisVersion = redisUtil.get("tenant:version:" + tenantId);
                 if (redisVersion != null && Integer.parseInt(redisVersion) != tenantVersion) {
+                    chain.doFilter(request, response);
                     return;
                 }
                 if (tenantId != null) {
@@ -102,8 +112,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
-        } finally {
+
             chain.doFilter(request, response);
+        } finally {
             TenantContext.clear();
         }
     }

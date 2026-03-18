@@ -8,6 +8,7 @@ import com.trae.admin.modules.auth.dto.LoginBody;
 import com.trae.admin.modules.rbac.entity.SysPermission;
 import com.trae.admin.modules.rbac.mapper.SysPermissionMapper;
 import com.trae.admin.modules.user.entity.SysUser;
+import com.trae.admin.modules.user.mapper.SysUserRoleMapper;
 import com.trae.admin.modules.user.mapper.SysUserMapper;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,7 @@ class PlatformAuthServiceImplTest {
     @Mock JwtUtil jwtUtil;
     @Mock RedisUtil redisUtil;
     @Mock SysUserMapper sysUserMapper;
+    @Mock SysUserRoleMapper sysUserRoleMapper;
     @Mock SysPermissionMapper sysPermissionMapper;
     @Mock PasswordEncoder passwordEncoder;
 
@@ -42,12 +44,11 @@ class PlatformAuthServiceImplTest {
 
     // ── 辅助 ──────────────────────────────────────────────
 
-    private SysUser mockUser(Long id, String username, String hashedPwd, Integer isSuper, Integer tokenVersion) {
+    private SysUser mockUser(Long id, String username, String hashedPwd, Integer tokenVersion) {
         SysUser u = new SysUser();
         u.setId(id);
         u.setUsername(username);
         u.setPassword(hashedPwd);
-        u.setIsSuper(isSuper);
         u.setTokenVersion(tokenVersion);
         u.setStatus(1);
         return u;
@@ -57,10 +58,11 @@ class PlatformAuthServiceImplTest {
 
     @Test
     void login_success_returnsTokensAndMeta() {
-        SysUser user = mockUser(1L, "admin", "$hash$", 1, 0);
+        SysUser user = mockUser(1L, "admin", "$hash$", 0);
         when(sysUserMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(user);
+        when(sysUserRoleMapper.existsSuperRole(1L)).thenReturn(true);
         when(passwordEncoder.matches("123456", "$hash$")).thenReturn(true);
-        when(sysPermissionMapper.selectPermissionsByUserId(1L)).thenReturn(List.of());
+        when(sysPermissionMapper.selectAllPermissions()).thenReturn(List.of());
         when(jwtUtil.createPlatformToken(eq(1L), eq("admin"), eq(true), eq(0), any())).thenReturn("acc");
         when(jwtUtil.createPlatformRefreshToken(eq(1L), eq("admin"), eq(0))).thenReturn("ref");
 
@@ -90,7 +92,7 @@ class PlatformAuthServiceImplTest {
 
     @Test
     void login_wrongPassword_throwsBusinessException() {
-        SysUser user = mockUser(1L, "admin", "$hash$", 0, 0);
+        SysUser user = mockUser(1L, "admin", "$hash$", 0);
         when(sysUserMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(user);
         when(passwordEncoder.matches("wrong", "$hash$")).thenReturn(false);
 
@@ -103,7 +105,7 @@ class PlatformAuthServiceImplTest {
 
     @Test
     void login_disabledUser_throwsBusinessException() {
-        SysUser user = mockUser(1L, "admin", "$hash$", 0, 0);
+        SysUser user = mockUser(1L, "admin", "$hash$", 0);
         user.setStatus(0);
         when(sysUserMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(user);
         when(passwordEncoder.matches(any(), any())).thenReturn(true);
@@ -117,8 +119,9 @@ class PlatformAuthServiceImplTest {
 
     @Test
     void login_permissionsIncludedInToken() {
-        SysUser user = mockUser(1L, "admin", "$hash$", 0, 0);
+        SysUser user = mockUser(1L, "admin", "$hash$", 0);
         when(sysUserMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(user);
+        when(sysUserRoleMapper.existsSuperRole(1L)).thenReturn(false);
         when(passwordEncoder.matches(any(), any())).thenReturn(true);
 
         SysPermission perm = new SysPermission();
@@ -149,9 +152,10 @@ class PlatformAuthServiceImplTest {
         when(jwtUtil.getTokenVersion(claims)).thenReturn(0);
         when(redisUtil.get("platform:version:1")).thenReturn("0");
 
-        SysUser user = mockUser(1L, "admin", "$h$", 1, 0);
+        SysUser user = mockUser(1L, "admin", "$h$", 0);
         when(sysUserMapper.selectById(1L)).thenReturn(user);
-        when(sysPermissionMapper.selectPermissionsByUserId(1L)).thenReturn(List.of());
+        when(sysUserRoleMapper.existsSuperRole(1L)).thenReturn(true);
+        when(sysPermissionMapper.selectAllPermissions()).thenReturn(List.of());
         when(jwtUtil.createPlatformToken(any(), any(), anyBoolean(), anyInt(), any())).thenReturn("newAcc");
 
         Map<String, Object> result = platformAuthService.refreshToken("rt");
@@ -167,6 +171,7 @@ class PlatformAuthServiceImplTest {
         when(jwtUtil.isPlatformToken(claims)).thenReturn(true);
         when(jwtUtil.getUserId(claims)).thenReturn(1L);
         when(jwtUtil.getTokenVersion(claims)).thenReturn(0);
+        when(sysUserMapper.selectById(1L)).thenReturn(mockUser(1L, "admin", "$h$", 0));
         when(redisUtil.get("platform:version:1")).thenReturn("1"); // version bumped
 
         assertThrows(BusinessException.class, () -> platformAuthService.refreshToken("rt"));
@@ -182,10 +187,13 @@ class PlatformAuthServiceImplTest {
 
     @Test
     void logout_addsToBlacklist() {
+        Claims claims = mock(Claims.class);
         when(jwtUtil.getExpirationFromToken("token"))
                 .thenReturn(new Date(System.currentTimeMillis() + 3_600_000));
+        when(jwtUtil.extractAllClaims("token")).thenReturn(claims);
+        when(jwtUtil.getJti(claims)).thenReturn("jti-token");
         platformAuthService.logout("Bearer token");
-        verify(redisUtil).set(eq("blacklist:token"), eq("1"), anyLong(), eq(TimeUnit.MILLISECONDS));
+        verify(redisUtil).set(eq("blacklist:jti-token"), eq("1"), anyLong(), eq(TimeUnit.MILLISECONDS));
     }
 
     @Test

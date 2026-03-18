@@ -59,7 +59,7 @@ class JwtUtilTest {
 
     @Test
     void createTenantToken_claimsCorrect() {
-        String token = jwtUtil.createTenantToken(10L, "13800000001", 2L, 3, List.of("tenant:role:list"));
+        String token = jwtUtil.createTenantToken(10L, "13800000001", 2L, 3, false, List.of("tenant:role:list"));
         Claims claims = jwtUtil.extractAllClaims(token);
 
         assertFalse((Boolean) claims.get("isPlatform"));
@@ -71,13 +71,13 @@ class JwtUtilTest {
 
     @Test
     void isPlatformToken_falseForTenantToken() {
-        String token = jwtUtil.createTenantToken(10L, "13800000001", 2L, 0, List.of());
+        String token = jwtUtil.createTenantToken(10L, "13800000001", 2L, 0, false, List.of());
         assertFalse(jwtUtil.isPlatformToken(jwtUtil.extractAllClaims(token)));
     }
 
     @Test
     void getTenantId_returnsCorrectValue() {
-        String token = jwtUtil.createTenantToken(10L, "13800000001", 99L, 0, List.of());
+        String token = jwtUtil.createTenantToken(10L, "13800000001", 99L, 0, false, List.of());
         Claims claims = jwtUtil.extractAllClaims(token);
         assertEquals(99L, jwtUtil.getTenantId(claims));
     }
@@ -102,7 +102,7 @@ class JwtUtilTest {
 
     @Test
     void isPreToken_falseForAccessToken() {
-        String token = jwtUtil.createTenantToken(10L, "13800000001", 1L, 0, List.of());
+        String token = jwtUtil.createTenantToken(10L, "13800000001", 1L, 0, false, List.of());
         assertFalse(jwtUtil.isPreToken(jwtUtil.extractAllClaims(token)));
     }
 
@@ -111,7 +111,7 @@ class JwtUtilTest {
     @Test
     void getAuthorities_returnsCorrectList() {
         List<String> perms = List.of("tenant:role:list", "tenant:role:add");
-        String token = jwtUtil.createTenantToken(1L, "13800000001", 1L, 0, perms);
+        String token = jwtUtil.createTenantToken(1L, "13800000001", 1L, 0, false, perms);
         List<String> extracted = jwtUtil.getAuthorities(jwtUtil.extractAllClaims(token));
         assertEquals(perms, extracted);
     }
