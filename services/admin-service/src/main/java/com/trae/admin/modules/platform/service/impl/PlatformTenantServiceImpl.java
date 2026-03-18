@@ -12,6 +12,7 @@ import com.trae.admin.modules.platform.vo.TenantVo;
 import com.trae.admin.modules.tenant.entity.TenantPermission;
 import com.trae.admin.modules.tenant.entity.TenantUserRole;
 import com.trae.admin.modules.tenant.mapper.TenantPermissionMapper;
+import com.trae.admin.modules.tenant.mapper.TenantRolePermissionMapper;
 import com.trae.admin.modules.tenant.mapper.TenantUserRoleMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,7 @@ public class PlatformTenantServiceImpl implements PlatformTenantService {
 
     private final PlatformTenantMapper tenantMapper;
     private final TenantPermissionMapper tenantPermissionMapper;
+    private final TenantRolePermissionMapper tenantRolePermissionMapper;
     private final TenantUserRoleMapper tenantUserRoleMapper;
     private final RestTemplate restTemplate;
 
@@ -262,6 +264,26 @@ public class PlatformTenantServiceImpl implements PlatformTenantService {
                     new org.springframework.http.HttpEntity<>(relationReq),
                     Void.class
             );
+
+            // 保障租户存在内置超管角色，并将初始管理员绑定为超管
+            Long superRoleId = tenantUserRoleMapper.selectDefaultSuperRoleId(tenantId);
+            if (superRoleId == null) {
+                tenantUserRoleMapper.insertDefaultSuperRole(tenantId);
+                superRoleId = tenantUserRoleMapper.selectDefaultSuperRoleId(tenantId);
+            }
+            if (superRoleId == null) {
+                throw new BusinessException("初始化管理员失败：创建租户超管角色失败");
+            }
+
+            tenantRolePermissionMapper.grantAllTenantPermissionsToRole(tenantId, superRoleId);
+
+            if (tenantUserRoleMapper.countUserRoleBinding(userId, tenantId, superRoleId) == 0) {
+                TenantUserRole binding = new TenantUserRole();
+                binding.setUserId(userId);
+                binding.setTenantId(tenantId);
+                binding.setRoleId(superRoleId);
+                tenantUserRoleMapper.insert(binding);
+            }
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {

@@ -356,11 +356,7 @@ public class TenantAuthServiceImpl implements TenantAuthService {
      */
     private boolean checkTenantAdmin(Long userId, Long tenantId) {
         try {
-            ResponseEntity<Boolean> resp = restTemplate.exchange(
-                    userServiceUrl + "/api/internal/users/" + userId + "/tenant-admin?tenantId=" + tenantId,
-                    HttpMethod.GET, null,
-                    Boolean.class);
-            return Boolean.TRUE.equals(resp.getBody());
+            return tenantUserRoleMapper.existsSuperRoleByUserAndTenant(userId, tenantId);
         } catch (Exception e) {
             log.warn("checkTenantAdmin failed userId={} tenantId={}", userId, tenantId, e);
             return false;

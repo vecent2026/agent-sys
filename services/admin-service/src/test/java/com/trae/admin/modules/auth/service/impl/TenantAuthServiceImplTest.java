@@ -88,22 +88,13 @@ class TenantAuthServiceImplTest {
         )).thenReturn((ResponseEntity) resp);
     }
 
-    private void mockCheckTenantAdmin(Long userId, Long tenantId, boolean isAdmin) {
-        when(restTemplate.exchange(
-                contains("/api/internal/users/" + userId + "/tenant-admin?tenantId=" + tenantId),
-                eq(HttpMethod.GET),
-                isNull(),
-                eq(Boolean.class)
-        )).thenReturn(ResponseEntity.ok(isAdmin));
-    }
-
     // ── 单租户登录 ─────────────────────────────────────────
 
     @Test
     void login_singleTenant_returnsAccessToken() {
         mockVerifyUser(10L, "13800000001");
         mockGetUserTenants(10L, List.of(1L));
-        mockCheckTenantAdmin(10L, 1L, false);
+        when(tenantUserRoleMapper.existsSuperRoleByUserAndTenant(10L, 1L)).thenReturn(false);
         when(platformTenantMapper.selectById(1L)).thenReturn(activeTenant(1L, "默认租户"));
         when(tenantRolePermissionMapper.selectUserPermissionKeys(10L, 1L))
                 .thenReturn(List.of("tenant:role:list"));
@@ -174,7 +165,7 @@ class TenantAuthServiceImplTest {
         when(jwtUtil.getUserId(claims)).thenReturn(10L);
         when(jwtUtil.getMobile(claims)).thenReturn("13800000001");
         mockGetUserTenants(10L, List.of(1L));
-        mockCheckTenantAdmin(10L, 1L, false);
+        when(tenantUserRoleMapper.existsSuperRoleByUserAndTenant(10L, 1L)).thenReturn(false);
         when(platformTenantMapper.selectById(1L)).thenReturn(activeTenant(1L, "默认租户"));
         when(tenantRolePermissionMapper.selectUserPermissionKeys(10L, 1L)).thenReturn(List.of());
         when(jwtUtil.createTenantToken(any(), any(), any(), anyInt(), anyBoolean(), any())).thenReturn("acc2");
@@ -238,7 +229,7 @@ class TenantAuthServiceImplTest {
         when(jwtUtil.getMobile(claims)).thenReturn("13800000001");
         when(jwtUtil.getTenantVersion(claims)).thenReturn(0);
         when(redisUtil.get("tenant:version:1")).thenReturn("0");
-        mockCheckTenantAdmin(10L, 1L, false);
+        when(tenantUserRoleMapper.existsSuperRoleByUserAndTenant(10L, 1L)).thenReturn(false);
         when(platformTenantMapper.selectById(1L)).thenReturn(activeTenant(1L, "默认租户"));
         when(tenantRolePermissionMapper.selectUserPermissionKeys(10L, 1L)).thenReturn(List.of());
         when(jwtUtil.createTenantToken(any(), any(), any(), anyInt(), anyBoolean(), any())).thenReturn("newAcc");

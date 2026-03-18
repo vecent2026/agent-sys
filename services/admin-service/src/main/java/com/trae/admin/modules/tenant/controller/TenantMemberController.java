@@ -85,7 +85,17 @@ public class TenantMemberController {
         Long tenantId = TenantContext.getTenantId();
         if (tenantId == null) throw new BusinessException("租户上下文缺失");
 
-        List<Long> roleIds = body.get("roleIds");
+        List<Long> roleIds = body.get("roleIds") != null ? body.get("roleIds") : Collections.emptyList();
+        List<Long> superRoleIds = tenantUserRoleMapper.selectSuperRoleIdsByTenant(tenantId);
+        boolean hadSuperRole = tenantUserRoleMapper.existsSuperRoleByUserAndTenant(userId, tenantId);
+        boolean willKeepSuperRole = roleIds.stream().anyMatch(new HashSet<>(superRoleIds)::contains);
+
+        if (hadSuperRole && !willKeepSuperRole) {
+            long superAdminCount = tenantUserRoleMapper.countSuperAdminsByTenant(tenantId);
+            if (superAdminCount <= 1) {
+                throw new BusinessException("当前租户仅剩最后一名超管，不能移除其超管角色。请先为其他成员分配超管角色。");
+            }
+        }
 
         // 删除旧角色关联
         tenantUserRoleMapper.deleteByUserAndTenant(userId, tenantId);
@@ -109,6 +119,13 @@ public class TenantMemberController {
     public Result<Void> removeMember(@PathVariable Long userId) {
         Long tenantId = TenantContext.getTenantId();
         if (tenantId == null) throw new BusinessException("租户上下文缺失");
+        boolean isSuperAdmin = tenantUserRoleMapper.existsSuperRoleByUserAndTenant(userId, tenantId);
+        if (isSuperAdmin) {
+            long superAdminCount = tenantUserRoleMapper.countSuperAdminsByTenant(tenantId);
+            if (superAdminCount <= 1) {
+                throw new BusinessException("当前租户仅剩最后一名超管，无法删除。请先新增或授权其他超管后再操作。");
+            }
+        }
         tenantUserRoleMapper.deleteByUserAndTenant(userId, tenantId);
         return Result.success();
     }

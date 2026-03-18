@@ -10,6 +10,8 @@ export interface UserInfo {
   lastLoginTime?: string;
   roles?: string[]; // Role keys or Role objects, depending on API. Usually keys for simple auth, or objects for management.
   permissions?: string[];
+  roleIds?: number[];
+  roleNames?: string[];
 }
 
 export interface LoginResult {

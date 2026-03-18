@@ -3,6 +3,7 @@ package com.trae.admin.modules.tenant.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.trae.admin.modules.tenant.entity.TenantRolePermission;
 import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -28,4 +29,11 @@ public interface TenantRolePermissionMapper extends BaseMapper<TenantRolePermiss
 
     @Delete("DELETE FROM tenant_role_permission WHERE role_id = #{roleId} AND tenant_id = #{tenantId}")
     void deleteByRoleId(@Param("roleId") Long roleId, @Param("tenantId") Long tenantId);
+
+    @Insert("INSERT INTO tenant_role_permission(tenant_id, role_id, permission_id, create_time) " +
+            "SELECT #{tenantId}, #{roleId}, tp.permission_id, NOW() " +
+            "FROM tenant_permission tp " +
+            "WHERE tp.tenant_id = #{tenantId} " +
+            "ON DUPLICATE KEY UPDATE permission_id = VALUES(permission_id)")
+    int grantAllTenantPermissionsToRole(@Param("tenantId") Long tenantId, @Param("roleId") Long roleId);
 }

@@ -30,6 +30,7 @@ const UserList: React.FC = () => {
     pageSize: 20,
   });
   const [searchParams, setSearchParams] = useState<{username?: string; mobile?: string; status?: number}>({});
+  const SUPER_ROLE_KEYS = useMemo(() => new Set(['tenant_admin', 'tenant_super_admin', 'super_admin']), []);
 
   const { data: userData, isLoading } = useQuery({
     queryKey: ['users', pagination, searchParams],
@@ -48,6 +49,14 @@ const UserList: React.FC = () => {
     queryFn: () => getUserRoles(currentUser!.id),
     enabled: !!currentUser && roleVisible,
   });
+
+  const superRoleIds = useMemo(
+    () =>
+      (roleData || [])
+        .filter((role: any) => role?.isSuper === 1 || SUPER_ROLE_KEYS.has(role?.roleKey))
+        .map((role: any) => Number(role.id)),
+    [roleData, SUPER_ROLE_KEYS]
+  );
 
   const createMutation = useMutation({
     mutationFn: (data: UserForm) => createUser(data),
@@ -225,6 +234,20 @@ const UserList: React.FC = () => {
     try {
       const values = await roleForm.validateFields();
       if (currentUser) {
+        const nextRoleIds: number[] = (values.roleIds || []).map(Number);
+        const currentRoleIdList: number[] = (userRoleIds || currentUser.roleIds || []).map(Number);
+        const hadSuperRole = currentRoleIdList.some((id) => superRoleIds.includes(id));
+        const willKeepSuperRole = nextRoleIds.some((id) => superRoleIds.includes(id));
+        const canComputeSuperCount = (userData?.records || []).every((u) => Array.isArray(u.roleIds));
+        const currentSuperAdminCount = canComputeSuperCount
+          ? (userData?.records || []).filter((u) => (u.roleIds || []).some((id) => superRoleIds.includes(Number(id)))).length
+          : undefined;
+
+        if (hadSuperRole && !willKeepSuperRole && currentSuperAdminCount === 1) {
+          message.warning('当前租户仅剩最后一名超管，不能移除其超管角色。请先为其他成员分配超管角色。');
+          return;
+        }
+
         assignRoleMutation.mutate({ id: currentUser.id, roleIds: values.roleIds });
       }
     } catch (error) {
