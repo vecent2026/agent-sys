@@ -4,10 +4,34 @@
 
 START TRANSACTION;
 
--- 1) platform_role 增补字段
-ALTER TABLE platform_role
-  ADD COLUMN IF NOT EXISTS is_super TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否超管角色：1=是，0=否',
-  ADD COLUMN IF NOT EXISTS is_builtin TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否系统内置：1=是，0=否';
+-- 1) platform_role 增补字段（MySQL 不支持 IF NOT EXISTS，使用存储过程）
+DELIMITER //
+CREATE PROCEDURE add_column_if_not_exists()
+BEGIN
+  -- 添加 is_super 字段
+  IF NOT EXISTS (
+    SELECT * FROM information_schema.columns 
+    WHERE table_schema = DATABASE() 
+    AND table_name = 'platform_role' 
+    AND column_name = 'is_super'
+  ) THEN
+    ALTER TABLE platform_role ADD COLUMN is_super TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否超管角色：1=是，0=否';
+  END IF;
+  
+  -- 添加 is_builtin 字段
+  IF NOT EXISTS (
+    SELECT * FROM information_schema.columns 
+    WHERE table_schema = DATABASE() 
+    AND table_name = 'platform_role' 
+    AND column_name = 'is_builtin'
+  ) THEN
+    ALTER TABLE platform_role ADD COLUMN is_builtin TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否系统内置：1=是，0=否';
+  END IF;
+END//
+DELIMITER ;
+
+CALL add_column_if_not_exists();
+DROP PROCEDURE IF EXISTS add_column_if_not_exists;
 
 -- 2) 初始角色语义（按当前内置角色键）
 UPDATE platform_role

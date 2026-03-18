@@ -134,10 +134,10 @@ public class DataInitService implements CommandLineRunner {
         permissions.add(permMenu);
 
         // Permission Management Buttons
-        permissions.add(createPermission(id++, permMenu.getId(), "权限列表", "BTN", "sys:menu:list", null, null, 1));
-        permissions.add(createPermission(id++, permMenu.getId(), "权限新增", "BTN", "sys:menu:add", null, null, 2));
-        permissions.add(createPermission(id++, permMenu.getId(), "权限修改", "BTN", "sys:menu:edit", null, null, 3));
-        permissions.add(createPermission(id++, permMenu.getId(), "权限删除", "BTN", "sys:menu:remove", null, null, 4));
+        permissions.add(createPermission(id++, permMenu.getId(), "权限列表", "BTN", "platform:perm:list", null, null, 1));
+        permissions.add(createPermission(id++, permMenu.getId(), "权限新增", "BTN", "platform:perm:add", null, null, 2));
+        permissions.add(createPermission(id++, permMenu.getId(), "权限修改", "BTN", "platform:perm:edit", null, null, 3));
+        permissions.add(createPermission(id++, permMenu.getId(), "权限删除", "BTN", "platform:perm:remove", null, null, 4));
 
         // Log Management (Menu)
         SysPermission logMenu = createPermission(id++, systemDir.getId(), "操作日志", "MENU", null, "/system/log", "system/log/index", 4);

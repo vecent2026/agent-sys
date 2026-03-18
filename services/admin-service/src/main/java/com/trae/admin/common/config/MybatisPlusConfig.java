@@ -37,8 +37,7 @@ public class MybatisPlusConfig {
             "tenant_permission",
             "tenant_role_permission",
             "tenant_user_role",
-            "operation_log",
-            "platform_admin_role"
+            "operation_log"
     ));
 
     @Bean
