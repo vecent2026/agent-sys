@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
  */
 @Tag(name = "角色模块", description = "角色信息管理、权限分配")
 @RestController
-@RequestMapping("/api/roles")
+@RequestMapping("/api/rbac/roles")
 @RequiredArgsConstructor
 public class RoleController {
 
