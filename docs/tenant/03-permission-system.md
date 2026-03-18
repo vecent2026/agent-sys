@@ -673,3 +673,30 @@ SET @tlog_menu = LAST_INSERT_ID();
 INSERT INTO `platform_permission` (`parent_id`,`name`,`type`,`permission_key`,`path`,`component`,`sort`,`scope`) VALUES
 (@tlog_menu,'查看租户日志','BTN','tenant:log:list',NULL,NULL,1,'tenant');
 ```
+
+---
+
+## 8. 2026-03-18 权限口径收敛补充
+
+### 8.1 平台权限命名统一约束
+
+权限节点管理能力统一使用：
+
+- `platform:perm:list`
+- `platform:perm:add`
+- `platform:perm:edit`
+- `platform:perm:remove`
+
+禁止再引入或回退到 `platform:menu:*` 口径。
+
+### 8.2 日志权限域边界
+
+- 平台侧日志查询权限：`platform:log:list`
+- 租户侧日志查询权限：`tenant:log:list`
+
+租户端菜单与接口鉴权必须只依赖 `tenant:log:list`，不得复用平台权限节点。
+
+### 8.3 遗留清理原则
+
+- 历史错误绑定允许清理，不保留双权限兼容
+- 数据、代码、前端权限判断三处保持一致（权限键、作用域、展示）

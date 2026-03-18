@@ -189,3 +189,25 @@ asyncService.processWithTenant(tenantId, () -> {
 | 租户被禁用 | `platform_tenant.data_version` +1，JWT 中 `tenantVersion` 不匹配拒绝 | ✅ |
 | 租户成员被移除 | 下次 `user_tenant` 查询返回无记录，切换租户失败；当前 token 自然过期 | ❌（需等 token 过期） |
 | token 自然过期 | accessToken 7200s 过期 | — |
+
+---
+
+## 8. 2026-03-18 网关稳定性补充
+
+### 8.1 运行期服务发现策略
+
+为避免 `admin-service` 等容器重建后 IP 变化导致网关持续访问旧地址（典型表现为登录 502），网关采用 Docker DNS 动态解析策略：
+
+- Nginx 在容器内使用 `resolver 127.0.0.11`（Docker 内置 DNS）
+- 上游服务地址使用可重解析方式，避免只在 Nginx 启动时解析一次
+- 该策略统一覆盖平台/租户相关上游，避免问题迁移
+
+### 8.2 编排语义说明
+
+- `depends_on` 仅保证启动顺序，不解决运行期上游地址漂移
+- 运行期稳定性依赖动态 DNS 重解析与服务自恢复（`restart` 策略）
+
+### 8.3 本次故障经验
+
+- 问题根因：网关缓存旧容器 IP，后端容器重建后 IP 变更
+- 修复原则：优先治理服务发现与编排层，不在业务代码层做绕行补丁

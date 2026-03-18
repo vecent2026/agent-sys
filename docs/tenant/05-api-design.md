@@ -588,3 +588,30 @@ private void validateTenantVersion(Long tenantId, Long tokenTenantVersion) {
 | `POST /api/tenant/members` 添加成员 | `(userId, tenantId)` | 已存在则忽略 |
 | `PUT /api/roles/{id}/permissions` 分配权限 | — | 覆盖式更新，天然幂等 |
 | `PUT /api/tenant/members/{userId}/roles` 分配角色 | — | 覆盖式更新，天然幂等 |
+
+---
+
+## 9. 2026-03-18 API 收敛补充
+
+### 9.1 日志接口路径最终口径
+
+- 平台日志：`GET /api/platform/logs`
+- 租户日志：`GET /api/tenant/logs`
+- 旧路径：`GET /api/logs` 已下线（网关返回 404）
+
+### 9.2 日志接口鉴权口径
+
+- 平台日志接口鉴权：`platform:log:list`（或超管角色）
+- 租户日志接口鉴权：`tenant:log:list`
+
+禁止租户端复用平台日志权限。
+
+### 9.3 登录与令牌字段口径
+
+登录成功响应中的访问令牌字段统一为 `accessToken`，前端请求鉴权头使用：
+
+`Authorization: Bearer <accessToken>`
+
+### 9.4 403 错误增强约定（规划）
+
+在“权限不足”场景，建议响应中显式携带缺失权限标识，并尽量返回权限名称（可由权限表映射），用于快速定位配置问题。

@@ -647,3 +647,33 @@ private void validateTenantVersion(Long tenantId, Long tokenVersion) {
     }
 }
 ```
+
+---
+
+## 8. 2026-03-18 日志与权限数据口径补充
+
+### 8.1 日志隔离查询口径
+
+统一按以下维度隔离日志数据：
+
+- 平台日志：`is_platform = 1`，`tenant_id IS NULL`
+- 租户日志：`is_platform = 0`，且 `tenant_id = 当前租户`
+
+说明：平台接口不得返回租户日志；租户接口不得跨租户返回数据。
+
+### 8.2 日志字段命名口径
+
+前后端统一使用 `costTime` 表示耗时（毫秒），不再使用 `duration` 作为展示字段来源。日志详情字段保留并可查询：
+
+- `params`
+- `result`
+- `errorMsg`
+
+### 8.3 权限数据目标态
+
+权限域彻底分离：
+
+- 平台日志权限：`platform:log:list`
+- 租户日志权限：`tenant:log:list`
+
+租户角色与租户用户权限配置中，不应再出现平台域日志权限绑定。

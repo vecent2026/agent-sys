@@ -543,3 +543,31 @@ public boolean ignoreTable(String tableName) {
 | 跨服务调用未传 X-Tenant-Id | 跨服务查询返回空数据 | admin-service → user-service 的调用全部走 Feign，在 Feign 拦截器统一注入 |
 | preToken 被截获重放 | 攻击者选择任意租户登录 | Redis 标记已用（一次性），有效期 5 分钟，生产环境强制 HTTPS |
 | 租户成员移除后 token 未立即失效 | 被移除的用户仍可操作 | 可接受（现有 token 在 2h 内仍有效）；高安全要求场景可升级为：移除时给该用户 token 打黑名单标记 |
+
+---
+
+## 10. 2026-03-18 增量实施记录
+
+### 10.1 已执行数据库脚本
+
+本次已执行并验证以下脚本：
+
+- `services/admin-service/sql/v5_log_domain_cleanup.sql`
+- `services/admin-service/sql/v6_tenant_test_data.sql`
+
+说明：本轮按“直接收敛目标模型”执行，不保留历史双权限兼容迁移。
+
+### 10.2 已完成系统收敛项
+
+- 权限域分离：平台与租户日志权限彻底拆分
+- API 收敛：租户日志切换到 `/api/tenant/logs`，`/api/logs` 下线
+- 网关治理：动态 DNS 重解析避免容器重建后的 502
+- 前端口径统一：日志耗时字段按 `costTime` 展示，权限树交互规则统一
+
+### 10.3 验收建议清单
+
+- 平台登录成功（`/api/platform/auth/login`）
+- 租户登录成功（`/api/tenant/auth/login`）
+- 平台日志接口 200（携带有效平台 token）
+- 租户日志接口 200（携带有效租户 token）
+- 旧日志路径 `/api/logs` 返回 404
