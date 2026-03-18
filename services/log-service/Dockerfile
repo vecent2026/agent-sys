@@ -28,8 +28,8 @@ COPY src ./src
 # clean: 清理之前的构建产物
 # package: 编译并打包应用
 # -Dmaven.test.skip=true: 完全跳过测试编译和执行，加快构建速度
-# -o: 离线模式，使用已下载的依赖
-RUN mvn clean package -Dmaven.test.skip=true -o
+# 这里不强制离线，避免首次构建或缓存失效时因依赖缺失导致失败
+RUN mvn clean package -Dmaven.test.skip=true
 
 # 运行阶段
 FROM amazoncorretto:17-alpine
