@@ -194,7 +194,7 @@ const RoleList: React.FC = () => {
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
-          <AuthButton perm="sys:role:edit">
+          <AuthButton perm="tenant:role:edit">
             {record.isBuiltin === 1 ? (
               <Tooltip title="内置超管角色不可编辑">
                 <Button type="link" size="small" icon={<EditOutlined />} disabled>
@@ -207,12 +207,12 @@ const RoleList: React.FC = () => {
               </Button>
             )}
           </AuthButton>
-          <AuthButton perm="role:assign">
+          <AuthButton perm="tenant:role:assign">
             <Button type="link" size="small" icon={<SettingOutlined />} onClick={() => handleAssignPerm(record)}>
               分配权限
             </Button>
           </AuthButton>
-          <AuthButton perm="sys:role:remove">
+          <AuthButton perm="tenant:role:remove">
             {record.isBuiltin === 1 ? (
               <Tooltip title="内置超管角色不可删除">
                 <Button type="link" size="small" danger icon={<DeleteOutlined />} disabled>
@@ -236,7 +236,7 @@ const RoleList: React.FC = () => {
     <PageContainer>
       <TablePageLayout
         toolbar={
-          <AuthButton perm="sys:role:add">
+          <AuthButton perm="tenant:role:add">
             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
               新增角色
             </Button>

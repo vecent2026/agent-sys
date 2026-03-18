@@ -12,6 +12,7 @@ export interface UserInfo {
   permissions?: string[];
   roleIds?: number[];
   roleNames?: string[];
+  joinTime?: string;
 }
 
 export interface LoginResult {
