@@ -670,7 +670,7 @@ navigate(firstPath, { replace: true });
   底部：已选 N 项  [取消] [保存]
 
 保存交互：
-  → 调用 PUT /api/roles/{id}/permissions
+  → 调用 PUT /api/rbac/roles/{id}/permissions
   → 后端返回 200：Drawer 关闭，列表刷新「权限数量」列
   → 后端返回错误（含未授权节点）：Toast 提示后端错误信息，不关闭抽屉
 ```
@@ -827,7 +827,7 @@ location /api/platform/ {
 location /api/tenant/ {
     proxy_pass http://admin-service:8081;
 }
-# 其余 /api/v1/、/api/roles 等保持现有
+# 其余 /api/v1/、/api/rbac/roles 等保持现有
 ```
 
 ---

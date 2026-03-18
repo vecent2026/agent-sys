@@ -9,7 +9,7 @@
 | `/api/tenant/auth/` | 租户端认证 | admin-service |
 | `/api/v1/app-users` | 用户中心（保持路径兼容） | user-service |
 | `/api/v1/user-tags` 等 | user-service 现有接口（保持兼容） | user-service |
-| `/api/roles` | 角色管理（admin-service，自动注入 tenant_id） | admin-service |
+| `/api/rbac/roles` | 角色管理（admin-service，自动注入 tenant_id） | admin-service |
 
 ---
 
@@ -382,15 +382,15 @@ DELETE /api/v1/field-defs/{id}                   # 删除自定义字段定义
 ### 4.2 角色管理（admin-service）
 
 ```
-GET    /api/roles                                # 当前租户角色列表
-GET    /api/roles/{id}                           # 角色详情（含权限节点）
-POST   /api/roles                                # 创建角色（tenant_id 自动注入）
-PUT    /api/roles/{id}                           # 更新角色名称/描述
-DELETE /api/roles/{ids}                          # 删除角色
-PUT    /api/roles/{id}/permissions               # 分配角色权限（校验在授权范围内）
+GET    /api/rbac/roles                           # 当前租户角色列表
+GET    /api/rbac/roles/{id}                      # 角色详情（含权限节点）
+POST   /api/rbac/roles                           # 创建角色（tenant_id 自动注入）
+PUT    /api/rbac/roles/{id}                      # 更新角色名称/描述
+DELETE /api/rbac/roles/{ids}                     # 删除角色
+PUT    /api/rbac/roles/{id}/permissions          # 分配角色权限（校验在授权范围内）
        Body: { permissionIds: [1, 2, 3] }
 
-GET    /api/roles/available-permissions          # 当前租户可用权限节点树（用于分配角色时展示）
+GET    /api/rbac/roles/available-permissions     # 当前租户可用权限节点树（用于分配角色时展示）
 ```
 
 ### 4.3 租户成员管理（admin-service）
@@ -503,7 +503,7 @@ public Result<Page<PlatformUserVo>> page(...) { ... }
 
 // 改造后（租户端接口）：
 @PreAuthorize("hasAuthority('tenant:role:edit')")
-@PutMapping("/api/roles/{id}")
+@PutMapping("/api/rbac/roles/{id}")
 public Result<Void> updateRole(...) { ... }
 ```
 
@@ -586,5 +586,5 @@ private void validateTenantVersion(Long tenantId, Long tokenTenantVersion) {
 | `POST /api/platform/tenants` 中创建/查找 app_user（ensureAppUser） | `mobile` | 已存在则返回已有用户 ID，不新建 |
 | `POST /api/platform/tenants` 中建立成员关系（addUserToTenant） | `(userId, tenantId)` | 已存在则忽略，不报错 |
 | `POST /api/tenant/members` 添加成员 | `(userId, tenantId)` | 已存在则忽略 |
-| `PUT /api/roles/{id}/permissions` 分配权限 | — | 覆盖式更新，天然幂等 |
+| `PUT /api/rbac/roles/{id}/permissions` 分配权限 | — | 覆盖式更新，天然幂等 |
 | `PUT /api/tenant/members/{userId}/roles` 分配角色 | — | 覆盖式更新，天然幂等 |
