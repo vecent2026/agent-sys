@@ -240,6 +240,8 @@ public class PlatformTenantServiceImpl implements PlatformTenantService {
         if (!StringUtils.hasText(dto.getAdminUser().getPassword())) {
             throw new BusinessException("初始化管理员失败：初始管理员密码不能为空");
         }
+        Long userId = null;
+        boolean tenantRelationCreated = false;
         try {
             Map<String, Object> ensureReq = new HashMap<>();
             ensureReq.put("mobile", dto.getAdminUser().getMobile());
@@ -257,7 +259,7 @@ public class PlatformTenantServiceImpl implements PlatformTenantService {
             if (user == null || user.get("id") == null) {
                 throw new BusinessException("初始化管理员失败：用户创建失败");
             }
-            Long userId = Long.valueOf(user.get("id").toString());
+            userId = Long.valueOf(user.get("id").toString());
 
             Map<String, Object> relationReq = new HashMap<>();
             relationReq.put("userId", userId);
@@ -269,6 +271,7 @@ public class PlatformTenantServiceImpl implements PlatformTenantService {
                     new org.springframework.http.HttpEntity<>(relationReq),
                     Void.class
             );
+            tenantRelationCreated = true;
 
             // 保障租户存在内置超管角色，并将初始管理员绑定为超管
             Long superRoleId = tenantUserRoleMapper.selectDefaultSuperRoleId(tenantId);
@@ -290,8 +293,10 @@ public class PlatformTenantServiceImpl implements PlatformTenantService {
                 tenantUserRoleMapper.insert(binding);
             }
         } catch (BusinessException e) {
+            compensateTenantAdminInit(userId, tenantId, tenantRelationCreated);
             throw e;
         } catch (HttpStatusCodeException e) {
+            compensateTenantAdminInit(userId, tenantId, tenantRelationCreated);
             log.error("init tenant admin http failed tenantId={}, mobile={}, body={}",
                     tenantId,
                     dto.getAdminUser() != null ? dto.getAdminUser().getMobile() : null,
@@ -299,11 +304,29 @@ public class PlatformTenantServiceImpl implements PlatformTenantService {
                     e);
             throw new BusinessException("初始化管理员失败");
         } catch (Exception e) {
+            compensateTenantAdminInit(userId, tenantId, tenantRelationCreated);
             log.error("init tenant admin failed tenantId={}, mobile={}",
                     tenantId,
                     dto.getAdminUser() != null ? dto.getAdminUser().getMobile() : null,
                     e);
             throw new BusinessException("初始化管理员失败");
+        }
+    }
+
+    private void compensateTenantAdminInit(Long userId, Long tenantId, boolean tenantRelationCreated) {
+        if (!tenantRelationCreated || userId == null || tenantId == null) {
+            return;
+        }
+        try {
+            restTemplate.exchange(
+                    userServiceUrl + "/api/internal/tenant-users?userId=" + userId + "&tenantId=" + tenantId,
+                    HttpMethod.DELETE,
+                    null,
+                    Void.class
+            );
+            log.info("compensated tenant_user relation for tenant admin init userId={}, tenantId={}", userId, tenantId);
+        } catch (Exception ex) {
+            log.error("failed to compensate tenant_user relation userId={}, tenantId={}", userId, tenantId, ex);
         }
     }
 }
