@@ -21,7 +21,12 @@ const PlatformApp: React.FC = () => {
 
   useEffect(() => {
     const restoreState = async () => {
+      const isLoginRoute = window.location.pathname === '/platform/login';
       const { userInfo, setUserInfo, setPermissions } = usePlatformUserStore.getState();
+      if (isLoginRoute || !token.access || userInfo) {
+        return;
+      }
+
       if (token.access && !userInfo) {
         setIsRestoring(true);
         try {
