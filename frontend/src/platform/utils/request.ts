@@ -30,6 +30,9 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+const isSilentAuthBootstrapRequest = (url?: string) =>
+  url === '/api/platform/auth/me' || url === '/api/platform/auth/permissions';
+
 platformInstance.interceptors.response.use(
   (response: AxiosResponse<Result>) => {
     const res = response.data;
@@ -45,6 +48,7 @@ platformInstance.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    const requestUrl = originalRequest?.url;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
@@ -90,6 +94,9 @@ platformInstance.interceptors.response.use(
     }
 
     if (error.response?.status === 403) {
+      if (isSilentAuthBootstrapRequest(requestUrl)) {
+        return Promise.reject(new Error('Access denied'));
+      }
       message.warning('当前账号暂无此操作权限');
       return Promise.reject(new Error('Access denied'));
     }
