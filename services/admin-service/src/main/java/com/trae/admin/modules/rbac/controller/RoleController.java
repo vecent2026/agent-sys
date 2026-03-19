@@ -5,8 +5,9 @@ import com.trae.admin.common.annotation.Log;
 import com.trae.admin.common.result.Result;
 import com.trae.admin.modules.rbac.dto.RoleDto;
 import com.trae.admin.modules.rbac.dto.RoleQueryDto;
-import com.trae.admin.modules.rbac.service.RoleService;
+import com.trae.admin.modules.rbac.vo.PermissionVo;
 import com.trae.admin.modules.rbac.vo.RoleVo;
+import com.trae.admin.modules.tenant.service.TenantRoleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -31,7 +32,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RoleController {
 
-    private final RoleService roleService;
+    private final TenantRoleService tenantRoleService;
 
     @Operation(
             summary = "分页查询角色",
@@ -43,9 +44,9 @@ public class RoleController {
             }
     )
     @GetMapping
-    @PreAuthorize("hasAuthority('platform:role:list')")
+    @PreAuthorize("hasAuthority('tenant:role:list')")
     public Result<Page<RoleVo>> page(RoleQueryDto queryDto) {
-        return Result.success(roleService.page(queryDto));
+        return Result.success(tenantRoleService.page(queryDto));
     }
 
     @Operation(
@@ -57,7 +58,7 @@ public class RoleController {
     )
     @GetMapping("/all")
     public Result<List<RoleVo>> listAll() {
-        return Result.success(roleService.listAll());
+        return Result.success(tenantRoleService.listAll());
     }
 
     @Operation(
@@ -74,9 +75,9 @@ public class RoleController {
             }
     )
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('platform:role:query')")
+    @PreAuthorize("hasAuthority('tenant:role:list')")
     public Result<RoleVo> get(@PathVariable Long id) {
-        return Result.success(roleService.get(id));
+        return Result.success(tenantRoleService.get(id));
     }
 
     @Operation(
@@ -92,9 +93,16 @@ public class RoleController {
             }
     )
     @GetMapping("/{id}/permissions")
-    @PreAuthorize("hasAuthority('platform:role:query')")
+    @PreAuthorize("hasAuthority('tenant:role:list')")
     public Result<List<Long>> getRolePermissionIds(@PathVariable Long id) {
-        return Result.success(roleService.getRolePermissionIds(id));
+        return Result.success(tenantRoleService.getRolePermissionIds(id));
+    }
+
+    @Operation(summary = "获取当前租户可分配权限树")
+    @GetMapping("/available-permissions")
+    @PreAuthorize("hasAuthority('tenant:role:assign')")
+    public Result<List<PermissionVo>> listAvailablePermissions() {
+        return Result.success(tenantRoleService.listAvailablePermissions());
     }
     
     @Operation(
@@ -110,11 +118,10 @@ public class RoleController {
             }
     )
     @RequestMapping(value = "/{id}/permissions", method = {RequestMethod.POST, RequestMethod.PUT})
-    @PreAuthorize("hasAuthority('platform:role:edit')")
+    @PreAuthorize("hasAuthority('tenant:role:assign')")
     @Log(module = "角色管理", action = "分配权限")
     public Result<Void> assignRolePermissions(@PathVariable Long id, @RequestBody Map<String, List<Long>> requestBody) {
-        // Call the new assignPermissions method for permission assignment
-        roleService.assignPermissions(id, requestBody.get("permissionIds"));
+        tenantRoleService.assignPermissions(id, requestBody.get("permissionIds"));
         return Result.success();
     }
 
@@ -129,10 +136,10 @@ public class RoleController {
             }
     )
     @PostMapping
-    @PreAuthorize("hasAuthority('platform:role:add')")
+    @PreAuthorize("hasAuthority('tenant:role:add')")
     @Log(module = "角色管理", action = "新增角色")
     public Result<Void> save(@RequestBody RoleDto roleDto) {
-        roleService.save(roleDto);
+        tenantRoleService.save(roleDto);
         return Result.success();
     }
 
@@ -147,18 +154,14 @@ public class RoleController {
             }
     )
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('platform:role:edit')")
+    @PreAuthorize("hasAuthority('tenant:role:edit')")
     @Log(module = "角色管理", action = "修改角色")
     public Result<Void> update(@PathVariable Long id, @RequestBody Map<String, Object> requestBody) {
-        // Create a RoleDto and set the id from path variable
         RoleDto roleDto = new RoleDto();
-        roleDto.setId(id);
-        // Set other fields from request body
         roleDto.setRoleName((String) requestBody.get("roleName"));
         roleDto.setRoleKey((String) requestBody.get("roleKey"));
         roleDto.setDescription((String) requestBody.get("description"));
-        // Call the existing update method
-        roleService.update(roleDto);
+        tenantRoleService.update(id, roleDto);
         return Result.success();
     }
 
@@ -173,14 +176,13 @@ public class RoleController {
             }
     )
     @DeleteMapping("/{ids}")
-    @PreAuthorize("hasAuthority('platform:role:remove')")
+    @PreAuthorize("hasAuthority('tenant:role:remove')")
     @Log(module = "角色管理", action = "删除角色")
     public Result<Void> delete(@PathVariable String ids) {
-        // Convert comma-separated string to List<Long>
         List<Long> idList = Arrays.stream(ids.split(","))
                 .map(Long::parseLong)
                 .collect(Collectors.toList());
-        roleService.delete(idList);
+        tenantRoleService.delete(idList);
         return Result.success();
     }
 }
