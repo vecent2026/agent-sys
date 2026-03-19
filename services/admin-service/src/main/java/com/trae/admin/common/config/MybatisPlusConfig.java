@@ -35,6 +35,7 @@ public class MybatisPlusConfig {
             "platform_user_role",
             "platform_role_permission",
             "tenant_permission",
+            "tenant_role",
             "tenant_role_permission",
             "tenant_user_role",
             "operation_log"
