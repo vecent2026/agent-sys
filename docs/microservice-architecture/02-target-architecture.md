@@ -10,7 +10,12 @@
 1. [核心原则](#一核心原则)
 2. [目标架构总览](#二目标架构总览)
 3. [服务职责边界](#三服务职责边界)
-4. [common-lib 规范](#四common-lib-规范)
+   - [3.0 服务边界总矩阵](#30-服务边界总矩阵)
+   - [3.1 iam-service](#31-iam-serviceidentity--access-management)
+   - [3.2 user-service](#32-user-serviceapp-user-service)
+   - [3.3 audit-service](#33-audit-serviceaudit-log-service)
+   - [3.4 租户成员关系边界声明](#34-租户成员关系边界声明)
+4. [跨服务契约与 common-lib 规范](#四跨服务契约与-common-lib-规范)
 5. [服务间通信规范](#五服务间通信规范)
 6. [API 路由规范](#六api-路由规范)
 7. [基础设施设计](#七基础设施设计)
@@ -98,6 +103,36 @@ Maven：services/pom.xml（父 pom）统一管理所有模块版本
 
 ## 三、服务职责边界
 
+### 3.0 服务边界总矩阵
+
+> 以下两张表是判断任何边界争议的最终依据。代码评审时，任何违反这两张表的实现都应被拒绝。
+
+#### 服务职责矩阵
+
+| 领域 | 主责服务 | 允许其他服务直接写 | 跨服务访问方式 | 明确禁止 |
+|------|----------|-------------------|--------------|---------|
+| 平台账号（SysUser） | iam-service | **否** | API | 其他服务不得直连 `starry_iam` 中的账号表 |
+| 平台角色 / 权限树 | iam-service | **否** | API | 其他服务不得直接操作 role / permission 表 |
+| 租户元数据（Tenant） | iam-service | **否** | API | 其他服务不得直连 tenant 表 |
+| 系统账号的租户归属 | iam-service | **否** | API | user-service 不得读写 `starry_iam.tenant_user` |
+| C 端用户（AppUser） | user-service | **否** | Feign `/api/internal/users/**` | iam-service 不得直连 `starry_user` |
+| C 端用户的租户归属 | user-service | **否** | Feign `/api/internal/users/**` | iam-service 查 C 端成员关系必须通过 Feign |
+| 审计日志（写） | audit-service | **否**（仅 Kafka） | Kafka Topic `starry-audit-log` | 任何服务不得直接写 ES |
+| 审计日志（读） | audit-service | — | Query API `/api/platform/logs` 等 | 任何服务不得直接读 ES `starry_audit_log` 索引 |
+
+#### 数据所有权矩阵
+
+| 存储资源 | 归属服务 | 位置 | 其他服务访问规则 |
+|---------|---------|------|----------------|
+| `starry_iam`（全部表） | iam-service | MySQL | 禁止跨服务直连；通过 iam-service API 访问 |
+| `starry_user`（全部表） | user-service | MySQL | 禁止跨服务直连；通过 Feign 内部接口访问 |
+| `starry_audit_log` | audit-service | Elasticsearch | 禁止直连 ES；写入走 Kafka，读取走 Query API |
+| `starry-audit-log` Topic | audit-service（消费） | Kafka | iam-service 可生产；任何服务不得绕过 audit-service 直接消费此 Topic |
+| Redis `iam:*` | iam-service | Redis | 禁止其他服务直接读写；命名空间隔离 |
+| Redis `user:*` | user-service | Redis | 禁止其他服务直接读写；命名空间隔离 |
+
+---
+
 ### 3.1 iam-service（Identity & Access Management）
 
 **职责**：系统身份认证 + 访问控制 + 系统账号管理 + 租户/平台治理
@@ -135,6 +170,27 @@ iam-service/src/main/java/com/starry/iam/
     ├── platform/    平台治理：租户管理、平台角色
     └── tenant/      租户管理：成员、租户角色
 ```
+
+**为什么 5 个模块聚合在一个服务内**
+
+iam-service 同时承载 auth / rbac / account / platform / tenant，这是**第一阶段的聚合边界**，不是永久的最终边界。聚合的理由如下：
+
+| 理由 | 说明 |
+|------|------|
+| 共享安全上下文 | 5 个模块共用同一套 `JwtUtil`、`SecurityConfig`、`JwtAuthenticationFilter`，拆开反而要复制这套基础设施 |
+| 共享数据库 | 5 个模块的表全部在 `starry_iam` 中，跨库 join 的收益远小于拆服务的成本 |
+| 登录与权限强耦合 | auth 模块在签发 JWT 时需要实时查询 rbac 模块的权限树，网络调用延迟不可接受 |
+| 当前规模不足 | 5 个模块合计约 150 个类，单服务完全可以管理，过早拆分只增加运维复杂度 |
+
+**未来拆分阈值（明确说明，不是当前目标）**：
+
+| 触发场景 | 拆出的服务 |
+|---------|----------|
+| 租户治理出现套餐、配额、审批流、生命周期管理 | `tenant-service` |
+| 平台治理出现多区域、运营看板、报表等平台级运营能力 | `platform-service` |
+| RBAC 演进为跨产品的通用权限平台 | `rbac-service` |
+
+> 在上述场景出现前，任何"感觉应该拆"的冲动都不应该触发拆分。拆分必须有明确的业务驱动，而不是代码整洁驱动。
 
 **彻底删除（不废弃，直接删）**：
 - `modules/auth/controller/AuthController.java`（`/api/auth` 旧接口）
@@ -204,6 +260,47 @@ iam-service LogAspect ──Kafka──► audit-service LogConsumer ──► E
                                  audit-service AuditLogController ◄── HTTP 查询
                                  audit-service LogRetentionTask ──► 定时清理
 ```
+
+**audit-service 认证与授权模型**
+
+audit-service 是纯资源服务，使用 `JwtValidator`（来自 common-lib）验证 token，不签发 token。
+
+| 接口 | 调用方身份要求 | tenantId 来源 | 数据范围 |
+|------|-------------|-------------|---------|
+| `GET /api/platform/logs` | JWT 中 `isPlatform = true` | 可由前端传入（平台管理员可查任意租户） | 全量或按传入的 tenantId 过滤 |
+| `GET /api/tenant/logs` | JWT 中 `isPlatform = false` | **强制从 JWT token 读取，忽略前端传入** | 严格限定为 token 中的 tenantId |
+
+> **关键安全约束**：租户端日志查询时，`tenantId` 过滤条件必须由服务端从 JWT 中提取并强制注入，前端传入的 `tenantId` 参数直接忽略。违反此规则会导致租户间数据越权访问。
+
+---
+
+### 3.4 租户成员关系边界声明
+
+租户成员关系是整个系统中最容易重新耦合的边界，必须明确唯一事实来源。
+
+#### 两类 tenant_user 的区分
+
+系统中存在两个同名但含义完全不同的概念：
+
+| 概念 | 表 | 所在数据库 | 含义 | 主责服务 |
+|------|---|---------|------|---------|
+| 系统账号的租户归属 | `tenant_user` | `starry_iam` | SysUser ↔ Tenant 映射（后台管理员属于哪个租户） | iam-service |
+| C 端用户的租户归属 | `tenant_user` | `starry_user` | AppUser ↔ Tenant 映射（C 端用户属于哪个租户） | user-service |
+
+#### 唯一事实来源声明
+
+| 问题 | 唯一事实来源 | 不允许的做法 |
+|------|------------|------------|
+| 某个系统账号是否属于某租户 | `starry_iam.tenant_user` | 不得从 user-service 查询或推断 |
+| 某个 C 端用户是否属于某租户 | `starry_user.tenant_user` | 不得从 iam-service 查询或推断 |
+| 某个 C 端用户在租户中的角色 | `starry_user.tenant_user_role` | 不得与 iam-service 的角色表混用 |
+
+#### 跨服务调用规则
+
+- **iam-service 登录验证**：查 `starry_iam.tenant_user`，确认系统账号有权访问该租户
+- **user-service 登录验证**：查 `starry_user.tenant_user`，确认 C 端用户属于该租户
+- **iam-service 需要查 C 端用户成员信息**：必须通过 Feign 调用 `user-service` 的内部接口，不得直连 `starry_user`
+- **任何跨库 join 均被禁止**：`starry_iam` 与 `starry_user` 之间禁止任何形式的跨库关联查询
 
 ---
 
@@ -305,6 +402,24 @@ def validate_token(token: str, secret: str) -> dict:
     return jwt.decode(token, secret, algorithms=["HS256"])
 ```
 
+#### JWT Claims 消费矩阵
+
+明确每个 claim 由谁写入、被哪些服务消费，避免服务依赖隐式假设。
+
+| Claim | 含义 | 写入方 | iam-service | user-service | audit-service |
+|-------|------|--------|:-----------:|:------------:|:-------------:|
+| `sub` | 用户标识（用户名/手机号） | iam-service | 身份标识 | — | 日志记录操作人 |
+| `userId` | 用户数据库 ID | iam-service | 业务关联 | 查询 AppUser 关系 | 日志中的 userId |
+| `isPlatform` | 平台端 / 租户端标识 | iam-service | 路由分支判断 | 隔离业务逻辑 | **控制查询范围** |
+| `tenantId` | 当前租户 ID | iam-service | 租户上下文设置 | 成员关系验证 | **强制租户隔离** |
+| `isTenantAdmin` | 是否租户管理员 | iam-service | 管理权限判断 | 业务权限控制 | — |
+| `authorities` | 权限 key 列表 | iam-service | 方法级鉴权 | — | 平台端日志接口鉴权 |
+| `tokenVersion` | token 版本号（修改密码/踢出时递增） | iam-service | Redis 黑名单比对 | — | — |
+| `jti` | token 唯一 ID | iam-service | 主动登出黑名单键 | — | — |
+| `iat` / `exp` | 签发时间 / 过期时间 | iam-service | 标准验证 | 标准验证 | 标准验证 |
+
+> **user-service 和 audit-service 只验证不信任**：两者均使用 `JwtValidator.parseToken()` 提取 claims，不假设任何 claim 一定存在，必须做 null 检查。
+
 #### Kafka 消息格式（审计日志）
 
 Topic `starry-audit-log` 的消息体：
@@ -370,6 +485,37 @@ common-lib/src/main/java/com/starry/common/
 - `InternalAuthFilter` 直接从 common-lib 使用，各 Java 服务无需重写
 - `BusinessException` 由各服务自己的 `GlobalExceptionHandler` 统一处理
 
+### common-lib 准入规则
+
+**进入 common-lib 必须同时满足以下三条**：
+
+| 条件 | 说明 |
+|------|------|
+| ① 多个服务确实都需要 | 至少 2 个现有服务用到，不以"将来可能用"为由纳入 |
+| ② 语义稳定 | 不会因单个服务的业务变化而频繁修改；一旦修改就会触发所有服务同步升级 |
+| ③ 契约性质 | 定义的是接口约定 / 安全机制，而不是业务逻辑实现 |
+
+**以下类型禁止进入 common-lib**：
+
+- 只有 1 个服务使用的工具类（即使代码看起来"通用"）
+- 含有业务判断逻辑的代码（如"租户是否有效"、"用户是否有权限"）
+- 与特定框架深度耦合且容易随业务变化的实现
+
+**当前 common-lib 内容的准入说明**：
+
+| 类 | 类型 | 准入依据 |
+|----|------|---------|
+| `Result` | 契约性 | 所有服务的 HTTP 响应格式，语义极稳定 |
+| `InternalAuthFilter` | 契约+安全 | 所有服务的内部接口鉴权机制一致 |
+| `JwtValidator` | 安全机制 | user-service 和 audit-service 均需验证 JWT |
+| `InternalAuthConstants` | 常量契约 | Header 名不能各自定义 |
+| `IpUtil` | 工具 | 多服务需要获取客户端 IP，逻辑稳定 |
+| `BaseEntity` | 框架耦合型 ⚠️ | 暂时纳入，因 3 个服务都用 MyBatis-Plus；若未来某服务迁移 ORM，需从 common-lib 移除 |
+| `TenantContext` | 框架耦合型 ⚠️ | 基于 Java `ThreadLocal`，异步场景下存在传播问题；若引入 WebFlux / 虚拟线程，需重新评估 |
+| `BusinessException` | 框架耦合型 ⚠️ | 与 Spring `GlobalExceptionHandler` 配合使用；各服务已有独立 handler，改动风险可控 |
+
+> ⚠️ 标记的类是"当前可接受，但要警惕"：任何修改这三个类的 PR 都需要评估对所有服务的影响。
+
 ---
 
 ## 五、服务间通信规范
@@ -377,6 +523,18 @@ common-lib/src/main/java/com/starry/common/
 ### 5.1 同步调用：OpenFeign + Resilience4j
 
 iam-service 调用 user-service 从 `RestTemplate` 升级为 **声明式 Feign Client + 熔断降级**。
+
+**为什么不继续使用封装后的 RestTemplate**
+
+| 问题 | RestTemplate 的局限 | OpenFeign 的收益 |
+|------|-------------------|----------------|
+| 接口契约模糊 | 调用方自己拼 URL 和参数，user-service 接口变更时无编译期提示 | 接口定义为 Java interface，变更有编译器保护 |
+| Header 注入分散 | `X-Internal-Secret` 需在每个调用点手动添加，容易遗漏 | `InternalFeignConfig` 统一注入，一处配置全局生效 |
+| 调用点不收敛 | 分散在各 Service 实现类中，难以整体替换 | 所有调用通过 `UserServiceClient` 一个入口，替换时只需 mock 此接口 |
+| 熔断需手写 | 需要手动 try-catch + 超时控制，逻辑散落 | Resilience4j 通过注解声明，与业务代码解耦 |
+| 未来扩展成本高 | 新增被调服务需要重复写 URL 拼接、错误处理等样板代码 | 新增 FeignClient interface 即可，遵循同一模式 |
+
+> **为什么现在就引入而不是"等规模大了再升级"**：项目未上线，一次性引入的成本最低；若先上 RestTemplate 再迁 Feign，需要同时回归所有调用链路，风险更高。
 
 **iam-service 新增**：
 
