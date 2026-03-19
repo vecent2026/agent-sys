@@ -24,6 +24,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
@@ -290,6 +291,13 @@ public class PlatformTenantServiceImpl implements PlatformTenantService {
             }
         } catch (BusinessException e) {
             throw e;
+        } catch (HttpStatusCodeException e) {
+            log.error("init tenant admin http failed tenantId={}, mobile={}, body={}",
+                    tenantId,
+                    dto.getAdminUser() != null ? dto.getAdminUser().getMobile() : null,
+                    e.getResponseBodyAsString(),
+                    e);
+            throw new BusinessException("初始化管理员失败");
         } catch (Exception e) {
             log.error("init tenant admin failed tenantId={}, mobile={}",
                     tenantId,
