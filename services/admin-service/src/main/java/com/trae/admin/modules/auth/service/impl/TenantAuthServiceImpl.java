@@ -198,9 +198,7 @@ public class TenantAuthServiceImpl implements TenantAuthService {
 
         // 重新获取权限（保留超管身份）
         boolean isTenantAdmin = checkTenantAdmin(userId, tenantId);
-        List<String> authorities = isTenantAdmin
-                ? Collections.singletonList("TENANT_SUPER_ADMIN")
-                : tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId);
+        List<String> authorities = resolveTenantAuthorities(userId, tenantId, isTenantAdmin);
 
         String newAccessToken = jwtUtil.createTenantToken(userId, mobile, tenantId, tenantVersion, isTenantAdmin, authorities);
 
@@ -276,11 +274,10 @@ public class TenantAuthServiceImpl implements TenantAuthService {
 
         boolean isTenantAdmin = checkTenantAdmin(userId, tenantId);
         if (isTenantAdmin) {
-            // 租户管理员拥有租户侧全量权限（兼容历史 app:* 与新 tenant:*）
-            return sysTenantPermissionKeys();
+            return resolveTenantAuthorities(userId, tenantId, true);
         }
 
-        return tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId);
+        return resolveTenantAuthorities(userId, tenantId, false);
     }
 
     @Override
@@ -335,9 +332,7 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         boolean isTenantAdmin = checkTenantAdmin(userId, tenantId);
 
         // 超管直接获得所有权限，普通用户按角色分配
-        List<String> authorities = isTenantAdmin
-                ? Collections.singletonList("TENANT_SUPER_ADMIN")
-                : tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId);
+        List<String> authorities = resolveTenantAuthorities(userId, tenantId, isTenantAdmin);
 
         String accessToken = jwtUtil.createTenantToken(userId, mobile, tenantId, tenantVersion, isTenantAdmin, authorities);
         String refreshToken = jwtUtil.createTenantRefreshToken(userId, mobile, tenantId, tenantVersion);
@@ -465,6 +460,23 @@ public class TenantAuthServiceImpl implements TenantAuthService {
     private Long toLong(Object val) {
         if (val == null) return null;
         return Long.valueOf(val.toString());
+    }
+
+    private List<String> resolveTenantAuthorities(Long userId, Long tenantId, boolean isTenantAdmin) {
+        List<String> authorities = isTenantAdmin
+                ? sysTenantPermissionKeys()
+                : tenantRolePermissionMapper.selectUserPermissionKeys(userId, tenantId);
+        return sanitizeAuthorities(authorities);
+    }
+
+    private List<String> sanitizeAuthorities(List<String> authorities) {
+        if (authorities == null || authorities.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return authorities.stream()
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     private String stripBearer(String token) {

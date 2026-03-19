@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Table, Button, Form, Input, message, Popconfirm, Tree, Drawer, Pagination, Space, Tooltip, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -11,6 +11,7 @@ import type { Role, RoleForm } from '@/types/role';
 import type { ColumnsType } from 'antd/es/table';
 import { formatDate } from '@/utils/dateUtils';
 import { designTokens } from '@/design-system/theme';
+import { normalizeCheckedKeys, toCheckablePermissionTreeData, toGrantableCheckedIds } from '@/utils/permissionTree';
 
 const RoleList: React.FC = () => {
   const [form] = Form.useForm();
@@ -50,9 +51,14 @@ const RoleList: React.FC = () => {
   // Sync checked keys when rolePerms loaded
   useEffect(() => {
     if (rolePerms) {
-      setCheckedKeys(rolePerms);
+      setCheckedKeys(rolePerms.map(String));
     }
   }, [rolePerms]);
+
+  const permissionTreeData = useMemo(
+    () => toCheckablePermissionTreeData((permTree as any[]) || []),
+    [permTree],
+  );
 
   const createMutation = useMutation({
     mutationFn: createRole,
@@ -136,12 +142,9 @@ const RoleList: React.FC = () => {
       return;
     }
     if (currentRole) {
-      // Note: In a real tree, you might need to include half-checked keys (parent nodes)
-      // AntD Tree onCheck gives { checked: [], halfChecked: [] } if checkStrictly is true
-      // Here we assume backend handles parent inference or we send all checked keys
       assignPermMutation.mutate({
         id: currentRole.id,
-        permissionIds: checkedKeys as number[],
+        permissionIds: toGrantableCheckedIds((permTree as any[]) || [], checkedKeys),
       });
     }
   };
@@ -360,11 +363,10 @@ const RoleList: React.FC = () => {
           <Tree
             checkable
             defaultExpandAll
-            treeData={permTree}
-            fieldNames={{ title: 'name', key: 'id', children: 'children' }}
+            treeData={permissionTreeData}
             checkedKeys={checkedKeys}
             disabled={currentRole?.isBuiltin === 1}
-            onCheck={(keys) => setCheckedKeys(keys as React.Key[])}
+            onCheck={(keys) => setCheckedKeys(normalizeCheckedKeys(keys))}
           />
         )}
       </Drawer>
