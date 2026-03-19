@@ -33,8 +33,8 @@ COPY src ./src
 # clean: 清理之前的构建产物
 # package: 编译并打包应用
 # -Dmaven.test.skip=true: 完全跳过测试编译和执行，加快构建速度
-# -o: 离线模式，使用已下载的依赖
-RUN mvn clean package -Dmaven.test.skip=true -o
+# 注意：不使用 -o 离线模式，允许 Maven 在缓存未命中时下载依赖
+RUN mvn clean package -Dmaven.test.skip=true
 
 # ==============================================================================
 # 运行阶段：使用轻量级的 Java 运行时镜像
