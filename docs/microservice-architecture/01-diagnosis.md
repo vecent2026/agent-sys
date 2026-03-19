@@ -1,6 +1,7 @@
 # 微服务架构诊断报告
 
 > 版本：v1.0 | 诊断日期：2026-03-19 | 范围：admin-service / user-service / log-service + Nginx 网关 + 前端
+> 状态：**已归档** | 整改结果见 [02-target-architecture.md](./02-target-architecture.md)
 
 ---
 
@@ -56,9 +57,9 @@
 
 | 服务 | 端口 | 数据库 | 包名 | 代码规模 |
 |------|------|--------|------|---------|
-| admin-service | 8081 | `admin_system` | `com.trae.admin` | ~150 个 Java 类，6 个业务模块 |
-| user-service | 8082 | `trae_user` | `com.trae.user` | ~56 个 Java 类，1 个扩展模块 |
-| log-service | 8083 | 无（纯 ES） | `com.trae.admin.log` ⚠️ | 4 个 Java 类，0 个 HTTP 接口 |
+| admin-service | 8081 | `admin_system` | `com.starry.admin` | ~150 个 Java 类，6 个业务模块 |
+| user-service | 8082 | `starry_user` | `com.starry.user` | ~56 个 Java 类，1 个扩展模块 |
+| log-service | 8083 | 无（纯 ES） | `com.starry.admin.log` ⚠️ | 4 个 Java 类，0 个 HTTP 接口 |
 
 ---
 
@@ -88,7 +89,7 @@ user-service 管理的是**应用终端用户（C 端用户）**，与 admin-ser
 |---------|------------------------------|-------------------------------|
 | 管理对象 | 平台系统账号（超管/租户管理员） | 租户应用的终端注册用户 |
 | 路由前缀 | `/api/platform/users` | `/api/v1/app-users` |
-| 数据表 | `platform_user` (admin_system 库) | `app_user` (trae_user 库) |
+| 数据表 | `platform_user` (admin_system 库) | `app_user` (starry_user 库) |
 | 登录系统 | 后台管理系统 | 租户自己的产品 App |
 | Entity | `SysUser` | `AppUser` |
 
@@ -141,9 +142,9 @@ admin-service                       log-service
 
 #### P1-1：log-service 包名使用了 admin 命名空间
 
-- **现象**：log-service 的包名为 `com.trae.admin.log`，而非 `com.trae.log`
+- **现象**：log-service 的包名为 `com.starry.admin.log`，而非 `com.starry.log`
 - **影响**：独立服务使用了另一个服务的包名前缀，代码归属感混乱；IDE 全局搜索时干扰严重
-- **整改**：重命名为 `com.trae.log`
+- **整改**：重命名为 `com.starry.log`
 
 #### P1-2：日志领域职责被人为拆散
 
@@ -157,9 +158,9 @@ admin-service                       log-service
 #### P1-3：SysLogDocument 实体三重定义
 
 - **现象**：以下三处存在相同或相似的 `SysLogDocument` 类：
-  - `com.trae.admin.modules.log.entity.SysLogDocument`
-  - `com.trae.admin.modules.user.entity.SysLogDocument`（user 模块中的冗余定义）
-  - `com.trae.admin.log.entity.SysLogDocument`（log-service 中）
+  - `com.starry.admin.modules.log.entity.SysLogDocument`
+  - `com.starry.admin.modules.user.entity.SysLogDocument`（user 模块中的冗余定义）
+  - `com.starry.admin.log.entity.SysLogDocument`（log-service 中）
 - **影响**：ES 映射可能不一致；序列化时 Kafka 消息类型头依赖包名，跨服务时易出现类型不匹配
 - **整改**：统一为一个位置的定义，其他地方引用或复制保持命名一致
 
@@ -230,7 +231,7 @@ admin-service                       log-service
 | 编号 | 改动项 | 成本 |
 |------|-------|------|
 | S-1 | 在 CLAUDE.md 和代码注释中明确两类"用户"的定义和区分 | 极低 |
-| S-2 | 修复 log-service 包名 `com.trae.admin.log` → `com.trae.log` | 低（重命名） |
+| S-2 | 修复 log-service 包名 `com.starry.admin.log` → `com.starry.log` | 低（重命名） |
 | S-3 | 删除 `admin-service/modules/user/entity/SysLogDocument`（冗余定义） | 低 |
 | S-4 | 补全 Nginx `/api/rbac/` 路由配置 | 极低 |
 | S-5 | 为 InternalUserController 增加 shared-secret header 校验 | 低 |
@@ -314,7 +315,7 @@ agent-service        智能体服务（新增）            8090
 | 数据库 | 使用方 | 主要表 |
 |-------|-------|-------|
 | `admin_system` | admin-service | platform_user, platform_role, platform_permission, platform_tenant, tenant_role, tenant_permission, tenant_user_role |
-| `trae_user` | user-service | app_user, app_user_field, app_user_tag, app_user_tag_category, app_user_tag_relation, app_user_field_value, tenant_user |
+| `starry_user` | user-service | app_user, app_user_field, app_user_tag, app_user_tag_category, app_user_tag_relation, app_user_field_value, tenant_user |
 | Elasticsearch `sys_log` | log-service（写）/ admin-service（读） | SysLogDocument（⚠️ 同一 index 由两个服务访问） |
 
 ### 5.3 问题优先级汇总
