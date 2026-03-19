@@ -65,7 +65,7 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         String mobile = (String) appUser.get("mobile");
 
         // 2. 查询用户所属租户（通过 user-service internal API 查 tenant_user 成员关系）
-        List<Long> tenantIds = getUserTenants(userId);
+        List<Long> tenantIds = resolveAvailableTenantIds(getUserTenants(userId));
 
         if (tenantIds.isEmpty()) {
             throw new BusinessException("该用户未加入任何租户");
@@ -125,7 +125,7 @@ public class TenantAuthServiceImpl implements TenantAuthService {
 
         // 校验用户是否属于该租户：以 user-service 的 tenant_user 成员关系为准（与登录时判断标准一致）
         // 不能仅依赖 tenant_user_role，因为用户可能尚未被分配角色但已是合法成员
-        List<Long> memberTenants = getUserTenants(userId);
+        List<Long> memberTenants = resolveAvailableTenantIds(getUserTenants(userId));
         if (!memberTenants.contains(tenantId)) {
             throw new BusinessException("用户不属于该租户");
         }
@@ -156,7 +156,7 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         }
 
         // 验证新租户成员资格（仅要求是成员，不要求必须分配角色）
-        List<Long> memberTenants = getUserTenants(userId);
+        List<Long> memberTenants = resolveAvailableTenantIds(getUserTenants(userId));
         if (!memberTenants.contains(newTenantId)) {
             throw new BusinessException("用户不属于目标租户");
         }
@@ -303,10 +303,13 @@ public class TenantAuthServiceImpl implements TenantAuthService {
                         return null;
                     }
                     PlatformTenant t = platformTenantMapper.selectById(tenantId);
+                    if (t == null || t.getStatus() == null || t.getStatus() == 0) {
+                        return null;
+                    }
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", tenantId);
-                    m.put("name", t != null ? t.getTenantName() : "");
-                    m.put("tenantCode", t != null ? t.getTenantCode() : "");
+                    m.put("name", t.getTenantName());
+                    m.put("tenantCode", t.getTenantCode());
                     m.put("isCurrent", Objects.equals(currentTenantId, tenantId));
                     m.put("memberStatus", membership.get("status") != null
                             ? Integer.valueOf(membership.get("status").toString()) : 1);
@@ -370,12 +373,15 @@ public class TenantAuthServiceImpl implements TenantAuthService {
     private List<Map<String, Object>> buildTenantInfoList(List<Long> tenantIds) {
         return tenantIds.stream().map(tid -> {
             PlatformTenant t = platformTenantMapper.selectById(tid);
+            if (t == null || t.getStatus() == null || t.getStatus() == 0) {
+                return null;
+            }
             Map<String, Object> info = new HashMap<>();
             info.put("tenantId", tid);
-            info.put("tenantName", t != null ? t.getTenantName() : "");
-            info.put("tenantCode", t != null ? t.getTenantCode() : "");
+            info.put("tenantName", t.getTenantName());
+            info.put("tenantCode", t.getTenantCode());
             return info;
-        }).collect(Collectors.toList());
+        }).filter(Objects::nonNull).collect(Collectors.toList());
     }
 
     /**
@@ -421,6 +427,22 @@ public class TenantAuthServiceImpl implements TenantAuthService {
             log.error("getUserTenants failed for userId={}", userId, e);
             return Collections.emptyList();
         }
+    }
+
+    private List<Long> resolveAvailableTenantIds(List<Long> tenantIds) {
+        if (tenantIds == null || tenantIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return tenantIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .filter(this::isTenantAvailable)
+                .collect(Collectors.toList());
+    }
+
+    private boolean isTenantAvailable(Long tenantId) {
+        PlatformTenant tenant = platformTenantMapper.selectById(tenantId);
+        return tenant != null && tenant.getStatus() != null && tenant.getStatus() == 1;
     }
 
     private List<Map<String, Object>> getUserTenantMemberships(Long userId) {
