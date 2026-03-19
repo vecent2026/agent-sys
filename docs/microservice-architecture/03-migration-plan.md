@@ -13,8 +13,8 @@
 ──────────────────────────        ─────────────────────────     ─────────────────────────────
 AuthController.java               admin-service → iam-service   services/pom.xml（父pom）
 DbFixController.java              log-service → audit-service   services/common-lib/
-PlatformLogController.java        com.trae.admin → com.trae.iam services/common-lib/.../Result.java
-TenantLogController.java          com.trae.admin.log → c.t.audit com.trae.common.../TenantContext.java
+PlatformLogController.java        com.starry.admin → com.starry.iam services/common-lib/.../Result.java
+TenantLogController.java          com.starry.admin.log → c.t.audit com.starry.common.../TenantContext.java
 admin/modules/log/（整目录）       modules/user → modules/account common-lib/.../JwtValidator.java
 admin/SysLogDocument.java         BackendApplication → Iam...App common-lib/.../InternalAuthFilter.java
 user/.../Result.java（本地副本）                                 audit/.../AuditLogController.java
@@ -66,11 +66,11 @@ Step 5 依赖 Step 2/3/4 全部完成。
         <relativePath/>
     </parent>
 
-    <groupId>com.trae</groupId>
-    <artifactId>trae-services</artifactId>
+    <groupId>com.starry</groupId>
+    <artifactId>starry-services</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>trae-services</name>
+    <name>starry-services</name>
     <description>Trae Microservices Parent POM</description>
 
     <modules>
@@ -93,7 +93,7 @@ Step 5 依赖 Step 2/3/4 全部完成。
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>com.trae</groupId>
+                <groupId>com.starry</groupId>
                 <artifactId>common-lib</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -145,7 +145,7 @@ Step 5 依赖 Step 2/3/4 全部完成。
 ```
 services/common-lib/
 ├── pom.xml
-└── src/main/java/com/trae/common/
+└── src/main/java/com/starry/common/
     ├── result/Result.java
     ├── context/TenantContext.java
     ├── exception/BusinessException.java
@@ -160,8 +160,8 @@ services/common-lib/
 **common-lib/pom.xml**：
 ```xml
 <parent>
-    <groupId>com.trae</groupId>
-    <artifactId>trae-services</artifactId>
+    <groupId>com.starry</groupId>
+    <artifactId>starry-services</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
 </parent>
@@ -201,7 +201,7 @@ services/common-lib/
 
 **Result.java**（从 admin-service 复制，更新 package）：
 ```java
-package com.trae.common.result;
+package com.starry.common.result;
 // 内容与 admin-service/common/result/Result.java 相同
 // 包含：Integer code, String message, T data, Long timestamp
 // 静态工厂：success(), success(data), error(code, message)
@@ -209,25 +209,25 @@ package com.trae.common.result;
 
 **TenantContext.java**（从 admin-service 复制，更新 package）：
 ```java
-package com.trae.common.context;
+package com.starry.common.context;
 // ThreadLocal<Long> TENANT_ID_HOLDER，setTenantId / getTenantId / clear
 ```
 
 **BusinessException.java**（从 admin-service 复制，更新 package）：
 ```java
-package com.trae.common.exception;
+package com.starry.common.exception;
 // 业务异常：Integer code + String message，继承 RuntimeException
 ```
 
 **BaseEntity.java**（从 admin-service 复制，更新 package）：
 ```java
-package com.trae.common.entity;
+package com.starry.common.entity;
 // MyBatis-Plus 公共字段：createTime, updateTime, isDeleted（逻辑删除）
 ```
 
 **InternalAuthConstants.java**（新建）：
 ```java
-package com.trae.common.security;
+package com.starry.common.security;
 
 public final class InternalAuthConstants {
     /** 内部服务间调用鉴权 header 名 */
@@ -241,7 +241,7 @@ public final class InternalAuthConstants {
 
 **InternalAuthFilter.java**（新建，可被所有服务复用）：
 ```java
-package com.trae.common.security;
+package com.starry.common.security;
 
 /**
  * 内部接口鉴权过滤器。
@@ -283,7 +283,7 @@ public class InternalAuthFilter extends OncePerRequestFilter {
 
 **JwtValidator.java**（新建，供资源服务使用）：
 ```java
-package com.trae.common.security;
+package com.starry.common.security;
 
 /**
  * JWT 验证工具（仅验证+解析，不创建 token）。
@@ -342,8 +342,8 @@ mv services/log-service services/audit-service
 
 ```xml
 <parent>
-    <groupId>com.trae</groupId>
-    <artifactId>trae-services</artifactId>
+    <groupId>com.starry</groupId>
+    <artifactId>starry-services</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
 </parent>
@@ -366,7 +366,7 @@ mv services/log-service services/audit-service
                 <artifactId>spring-kafka</artifactId></dependency>
     <dependency><groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId></dependency>
-    <dependency><groupId>com.trae</groupId>
+    <dependency><groupId>com.starry</groupId>
                 <artifactId>common-lib</artifactId></dependency>
     <dependency><groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId></dependency>
@@ -375,19 +375,19 @@ mv services/log-service services/audit-service
 
 ### 2.3 Java 包重命名
 
-**批量替换**：`com.trae.admin.log` → `com.trae.audit`
+**批量替换**：`com.starry.admin.log` → `com.starry.audit`
 
 **目录迁移**：
 ```bash
-mkdir -p services/audit-service/src/main/java/com/trae/audit
-mv services/audit-service/src/main/java/com/trae/admin/log/* \
-   services/audit-service/src/main/java/com/trae/audit/
-rm -rf services/audit-service/src/main/java/com/trae/admin
+mkdir -p services/audit-service/src/main/java/com/starry/audit
+mv services/audit-service/src/main/java/com/starry/admin/log/* \
+   services/audit-service/src/main/java/com/starry/audit/
+rm -rf services/audit-service/src/main/java/com/starry/admin
 ```
 
 **主类**：`LogServiceApplication.java` → `AuditServiceApplication.java`
 ```java
-package com.trae.audit;
+package com.starry.audit;
 
 @SpringBootApplication
 @EnableScheduling
@@ -400,9 +400,9 @@ public class AuditServiceApplication {
 
 ### 2.4 SysLogDocument 包路径更新
 
-`com/trae/audit/entity/SysLogDocument.java`：
+`com/starry/audit/entity/SysLogDocument.java`：
 ```java
-package com.trae.audit.entity;  // 更新 package，内容不变
+package com.starry.audit.entity;  // 更新 package，内容不变
 ```
 
 `SysLogRepository.java`、`LogConsumer.java` 同步更新 import。
@@ -411,14 +411,14 @@ package com.trae.audit.entity;  // 更新 package，内容不变
 
 **dto/LogQueryDto.java**（迁自 iam-service，更新 package）：
 ```java
-package com.trae.audit.dto;
+package com.starry.audit.dto;
 // 字段：userId, tenantId, isPlatform, username, module, action, status,
 //       startTime, endTime, page, pageSize
 ```
 
 **service/AuditLogQueryService.java**（接口）：
 ```java
-package com.trae.audit.service;
+package com.starry.audit.service;
 
 public interface AuditLogQueryService {
     Page<SysLogDocument> page(LogQueryDto queryDto);
@@ -430,7 +430,7 @@ public interface AuditLogQueryService {
 
 **controller/AuditLogController.java**（合并原 PlatformLogController + TenantLogController）：
 ```java
-package com.trae.audit.controller;
+package com.starry.audit.controller;
 
 @RestController
 @Tag(name = "审计日志")
@@ -462,7 +462,7 @@ public class AuditLogController {
 
 **config/SecurityConfig.java**（新建，使用 common-lib JwtValidator）：
 ```java
-package com.trae.audit.config;
+package com.starry.audit.config;
 
 @Configuration
 @EnableWebSecurity
@@ -497,7 +497,7 @@ public class SecurityConfig {
 
 **task/LogRetentionTask.java**（迁自 iam-service，更新 package）：
 ```java
-package com.trae.audit.task;
+package com.starry.audit.task;
 // 定时清理过期 ES 日志，内容从 iam-service 迁入
 ```
 
@@ -518,10 +518,10 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: "com.trae.*"
+        spring.json.trusted.packages: "com.starry.*"
         spring.json.type.mapping: >
-          com.trae.admin.modules.log.entity.SysLogDocument:com.trae.audit.entity.SysLogDocument,
-          com.trae.admin.log.entity.SysLogDocument:com.trae.audit.entity.SysLogDocument
+          com.starry.admin.modules.log.entity.SysLogDocument:com.starry.audit.entity.SysLogDocument,
+          com.starry.admin.log.entity.SysLogDocument:com.starry.audit.entity.SysLogDocument
     listener:
       type: batch
       concurrency: 1
@@ -533,7 +533,7 @@ spring:
       port: ${REDIS_PORT:6379}
 
 jwt:
-  secret: ${JWT_SECRET:trae-admin-system-secret-key-must-be-very-long-and-secure-and-safe}
+  secret: ${JWT_SECRET:starry-admin-system-secret-key-must-be-very-long-and-secure-and-safe}
 
 management:
   endpoints:
@@ -555,7 +555,7 @@ mv services/admin-service services/iam-service
 ### 3.2 pom.xml 更新
 
 **修改内容**：
-- 添加 `<parent>` 指向 `trae-services`
+- 添加 `<parent>` 指向 `starry-services`
 - `artifactId`: `admin-service` → `iam-service`
 - 删除 `spring-boot-starter-data-elasticsearch`（日志查询职责移走）
 - 添加 `spring-cloud-starter-openfeign`（取代 RestTemplate）
@@ -569,7 +569,7 @@ mv services/admin-service services/iam-service
 
     <!-- 新增 -->
     <dependency>
-        <groupId>com.trae</groupId>
+        <groupId>com.starry</groupId>
         <artifactId>common-lib</artifactId>
     </dependency>
     <dependency>
@@ -585,17 +585,17 @@ mv services/admin-service services/iam-service
 </dependencies>
 ```
 
-### 3.3 批量包重命名：`com.trae.admin` → `com.trae.iam`
+### 3.3 批量包重命名：`com.starry.admin` → `com.starry.iam`
 
 **操作**（~150 个 .java 文件）：
 ```bash
 # 1. 移动目录
-mv services/iam-service/src/main/java/com/trae/admin \
-   services/iam-service/src/main/java/com/trae/iam
+mv services/iam-service/src/main/java/com/starry/admin \
+   services/iam-service/src/main/java/com/starry/iam
 
 # 2. 批量替换包声明和 import
 find services/iam-service/src -name "*.java" \
-  -exec sed -i 's/com\.trae\.admin/com.trae.iam/g' {} \;
+  -exec sed -i 's/com\.starry\.admin/com.starry.iam/g' {} \;
 ```
 
 ### 3.4 主类重命名
@@ -604,7 +604,7 @@ find services/iam-service/src -name "*.java" \
 BackendApplication.java → IamServiceApplication.java
 ```
 ```java
-package com.trae.iam;
+package com.starry.iam;
 
 @SpringBootApplication
 @EnableFeignClients
@@ -619,32 +619,32 @@ public class IamServiceApplication {
 ### 3.5 模块重命名：`modules/user` → `modules/account`
 
 ```bash
-mv services/iam-service/src/main/java/com/trae/iam/modules/user \
-   services/iam-service/src/main/java/com/trae/iam/modules/account
+mv services/iam-service/src/main/java/com/starry/iam/modules/user \
+   services/iam-service/src/main/java/com/starry/iam/modules/account
 
 # 批量替换包路径
-find services/iam-service/src/main/java/com/trae/iam/modules/account \
+find services/iam-service/src/main/java/com/starry/iam/modules/account \
   -name "*.java" \
-  -exec sed -i 's/com\.trae\.iam\.modules\.user/com.trae.iam.modules.account/g' {} \;
+  -exec sed -i 's/com\.starry\.iam\.modules\.user/com.starry.iam.modules.account/g' {} \;
 ```
 
 ### 3.6 删除遗留代码（直接删除，无过渡）
 
 ```bash
 # 删除日志查询整个模块（迁至 audit-service）
-rm -rf services/iam-service/src/main/java/com/trae/iam/modules/log/
+rm -rf services/iam-service/src/main/java/com/starry/iam/modules/log/
 
 # 删除 PlatformLogController（日志查询移走）
-rm services/iam-service/src/main/java/com/trae/iam/modules/platform/controller/PlatformLogController.java
+rm services/iam-service/src/main/java/com/starry/iam/modules/platform/controller/PlatformLogController.java
 
 # 删除 TenantLogController
-rm services/iam-service/src/main/java/com/trae/iam/modules/tenant/controller/TenantLogController.java
+rm services/iam-service/src/main/java/com/starry/iam/modules/tenant/controller/TenantLogController.java
 
 # 删除旧版 AuthController（/api/auth 接口废弃，直接删除）
-rm services/iam-service/src/main/java/com/trae/iam/modules/auth/controller/AuthController.java
+rm services/iam-service/src/main/java/com/starry/iam/modules/auth/controller/AuthController.java
 
 # 删除 DbFixController（调试代码不进任何生产 profile）
-rm services/iam-service/src/main/java/com/trae/iam/modules/rbac/controller/DbFixController.java
+rm services/iam-service/src/main/java/com/starry/iam/modules/rbac/controller/DbFixController.java
 ```
 
 **同步从 SecurityConfig 中删除**：
@@ -657,7 +657,7 @@ rm services/iam-service/src/main/java/com/trae/iam/modules/rbac/controller/DbFix
 
 **新建**：`client/UserServiceClient.java`
 ```java
-package com.trae.iam.client;
+package com.starry.iam.client;
 
 @FeignClient(
     name = "user-service",
@@ -697,7 +697,7 @@ public interface UserServiceClient {
 
 **新建**：`client/InternalFeignConfig.java`
 ```java
-package com.trae.iam.client;
+package com.starry.iam.client;
 
 public class InternalFeignConfig implements RequestInterceptor {
     @Value("${" + InternalAuthConstants.ENV_KEY + ":change-me}")
@@ -712,7 +712,7 @@ public class InternalFeignConfig implements RequestInterceptor {
 
 **新建**：`client/UserServiceClientFallbackFactory.java`
 ```java
-package com.trae.iam.client;
+package com.starry.iam.client;
 
 @Component
 @Slf4j
@@ -760,7 +760,7 @@ public class PermissionServiceImpl implements PermissionService {
 
 **新建**：`modules/rbac/config/CacheConfig.java`
 ```java
-package com.trae.iam.modules.rbac.config;
+package com.starry.iam.modules.rbac.config;
 
 @Configuration
 @EnableCaching
@@ -814,7 +814,7 @@ resilience4j:
 
 ### 4.1 更新 pom.xml
 
-添加 `<parent>` 指向 `trae-services` + 添加 `common-lib` 依赖。
+添加 `<parent>` 指向 `starry-services` + 添加 `common-lib` 依赖。
 
 ### 4.2 注册 InternalAuthFilter（使用 common-lib 版）
 
@@ -844,18 +844,18 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
 | 删除文件 | 替换为 |
 |----------|--------|
-| `common/result/Result.java` | `com.trae.common.result.Result` |
-| `common/context/TenantContext.java` | `com.trae.common.context.TenantContext` |
-| `common/exception/BusinessException.java` | `com.trae.common.exception.BusinessException` |
-| `common/utils/IpUtil.java`（如有） | `com.trae.common.utils.IpUtil` |
+| `common/result/Result.java` | `com.starry.common.result.Result` |
+| `common/context/TenantContext.java` | `com.starry.common.context.TenantContext` |
+| `common/exception/BusinessException.java` | `com.starry.common.exception.BusinessException` |
+| `common/utils/IpUtil.java`（如有） | `com.starry.common.utils.IpUtil` |
 
 **批量更新 import**：
 ```bash
 find services/user-service/src -name "*.java" \
   -exec sed -i \
-    -e 's/import com\.trae\.user\.common\.result\.Result/import com.trae.common.result.Result/g' \
-    -e 's/import com\.trae\.user\.common\.context\.TenantContext/import com.trae.common.context.TenantContext/g' \
-    -e 's/import com\.trae\.user\.common\.exception\.BusinessException/import com.trae.common.exception.BusinessException/g' \
+    -e 's/import com\.starry\.user\.common\.result\.Result/import com.starry.common.result.Result/g' \
+    -e 's/import com\.starry\.user\.common\.context\.TenantContext/import com.starry.common.context.TenantContext/g' \
+    -e 's/import com\.starry\.user\.common\.exception\.BusinessException/import com.starry.common.exception.BusinessException/g' \
   {} \;
 ```
 
@@ -873,7 +873,7 @@ find services/user-service/src -name "*.java" \
 INTERNAL_SECRET=change-me-in-production
 
 # JWT 签名密钥（所有服务共用，必须一致）
-JWT_SECRET=trae-admin-system-secret-key-must-be-very-long-and-secure-and-safe
+JWT_SECRET=starry-admin-system-secret-key-must-be-very-long-and-secure-and-safe
 
 # 数据库密码
 MYSQL_ROOT_PASSWORD=your-root-password
@@ -904,7 +904,7 @@ services:
     environment:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
-      MYSQL_DATABASE: admin_system
+      MYSQL_DATABASE: starry_iam
       MYSQL_USERNAME: ${MYSQL_USERNAME:-root}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-root}
       REDIS_HOST: redis
@@ -1106,8 +1106,8 @@ server {
 
 | 检查项 | 命令 | 预期结果 |
 |--------|------|---------|
-| 无 `com.trae.admin` 残留 | `grep -r "com\.trae\.admin" services/` | 0 结果 |
-| 无 `com.trae.admin.log` 残留 | `grep -r "com\.trae\.admin\.log" services/` | 0 结果 |
+| 无 `com.starry.admin` 残留 | `grep -r "com\.starry\.admin" services/` | 0 结果 |
+| 无 `com.starry.admin.log` 残留 | `grep -r "com\.starry\.admin\.log" services/` | 0 结果 |
 | SysLogDocument 唯一 | `find services -name "SysLogDocument.java"` | 仅 audit-service 1 个 |
 | AuthController 已删 | `find services -name "AuthController.java"` | 0 结果 |
 | DbFixController 已删 | `find services -name "DbFixController.java"` | 0 结果 |

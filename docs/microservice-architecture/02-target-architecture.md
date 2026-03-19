@@ -59,7 +59,7 @@
                ┌────────────▼─────┐  ┌─────────▼──────┐  ┌──────▼────────────┐
                │   iam-service    │  │  user-service   │  │   audit-service   │
                │     :8081        │  │    :8082        │  │     :8083         │
-               │  com.trae.iam    │  │  com.trae.user  │  │  com.trae.audit   │
+               │  com.starry.iam    │  │  com.starry.user  │  │  com.starry.audit   │
                │                  │  │                 │  │                   │
                │ auth/            │  │ AppUser         │  │ LogConsumer       │
                │ rbac/            │  │ AppUserField    │  │ AuditLogController│
@@ -89,10 +89,10 @@ Maven：services/pom.xml（父 pom）统一管理所有模块版本
 
 | 服务 | 端口 | Java 包 | Maven artifactId | Spring 应用名 | 数据库 |
 |------|------|---------|-----------------|-------------|--------|
-| `iam-service` | 8081 | `com.trae.iam` | `iam-service` | `iam-service` | `admin_system` |
-| `user-service` | 8082 | `com.trae.user` | `user-service` | `user-service` | `trae_user` |
-| `audit-service` | 8083 | `com.trae.audit` | `audit-service` | `audit-service` | ES only |
-| `common-lib` | — | `com.trae.common` | `common-lib` | — | — |
+| `iam-service` | 8081 | `com.starry.iam` | `iam-service` | `iam-service` | `starry_iam` |
+| `user-service` | 8082 | `com.starry.user` | `user-service` | `user-service` | `starry_user` |
+| `audit-service` | 8083 | `com.starry.audit` | `audit-service` | `audit-service` | ES only |
+| `common-lib` | — | `com.starry.common` | `common-lib` | — | — |
 
 ---
 
@@ -103,7 +103,7 @@ Maven：services/pom.xml（父 pom）统一管理所有模块版本
 **职责**：系统身份认证 + 访问控制 + 系统账号管理 + 租户/平台治理
 
 ```
-iam-service/src/main/java/com/trae/iam/
+iam-service/src/main/java/com/starry/iam/
 ├── IamServiceApplication.java
 ├── common/                        # 服务级基础设施（非业务）
 │   ├── annotation/Log.java        # 审计日志注解
@@ -162,7 +162,7 @@ iam-service/src/main/java/com/trae/iam/
 | 称呼 | 系统账号 | C 端用户 / 应用用户 |
 | 登录 | 用户名 + 密码 | 手机号 + 密码 |
 | 用途 | 登录后台管理系统 | 使用租户的产品 App |
-| 数据库 | `admin_system.platform_user` | `trae_user.app_user` |
+| 数据库 | `starry_iam.platform_user` | `starry_user.app_user` |
 | 由谁创建 | 平台管理员手动创建 | 用户自行注册 |
 
 **安全加固**（激进落地）：
@@ -176,7 +176,7 @@ iam-service/src/main/java/com/trae/iam/
 **职责**：审计日志完整生命周期（写入、查询、保留策略）—— 日志领域的唯一归属
 
 ```
-audit-service/src/main/java/com/trae/audit/
+audit-service/src/main/java/com/starry/audit/
 ├── AuditServiceApplication.java
 ├── config/
 │   ├── SecurityConfig.java    # JWT 验证（只读，不创建 token）
@@ -307,7 +307,7 @@ def validate_token(token: str, secret: str) -> dict:
 
 #### Kafka 消息格式（审计日志）
 
-Topic `sys-log-topic` 的消息体：
+Topic `starry-audit-log` 的消息体：
 
 ```json
 {
@@ -328,18 +328,18 @@ Topic `sys-log-topic` 的消息体：
 }
 ```
 
-异构服务如需写入审计日志，直接向 `sys-log-topic` 发送此格式的 JSON 消息即可，audit-service 统一消费。
+异构服务如需写入审计日志，直接向 `starry-audit-log` 发送此格式的 JSON 消息即可，audit-service 统一消费。
 
 ---
 
 ### 4.3 common-lib（Java 服务专用）
 
-**Maven 坐标**：`com.trae:common-lib:1.0.0-SNAPSHOT`
+**Maven 坐标**：`com.starry:common-lib:1.0.0-SNAPSHOT`
 
 **适用范围**：iam-service、user-service、audit-service 及未来所有 **Java** 服务。
 
 ```
-common-lib/src/main/java/com/trae/common/
+common-lib/src/main/java/com/starry/common/
 ├── result/
 │   └── Result.java              # 4.2 响应格式的 Java 实现
 ├── context/
@@ -441,7 +441,7 @@ resilience4j:
 
 ```
 生产者：iam-service / LogAspect
-  Topic：sys-log-topic
+  Topic：starry-audit-log
   序列化：JsonSerializer（SysLogDocument）
 
 消费者：audit-service / LogConsumer
@@ -450,8 +450,8 @@ resilience4j:
 
 类型映射（Kafka 消息头 __TypeId__ 兼容）：
   spring.json.type.mapping:
-    com.trae.admin.modules.log.entity.SysLogDocument:com.trae.audit.entity.SysLogDocument
-    com.trae.admin.log.entity.SysLogDocument:com.trae.audit.entity.SysLogDocument
+    com.starry.admin.modules.log.entity.SysLogDocument:com.starry.audit.entity.SysLogDocument
+    com.starry.admin.log.entity.SysLogDocument:com.starry.audit.entity.SysLogDocument
 ```
 
 ### 5.3 内部接口鉴权
@@ -509,42 +509,42 @@ location ^~ /api/agent/ { proxy_pass http://agent_service; }
 services/
 ├── pom.xml          ← 父 pom，统一管理所有版本
 ├── common-lib/
-├── iam-service/     ← 声明 parent: trae-services
-├── user-service/    ← 声明 parent: trae-services
-└── audit-service/   ← 声明 parent: trae-services
+├── iam-service/     ← 声明 parent: starry-services
+├── user-service/    ← 声明 parent: starry-services
+└── audit-service/   ← 声明 parent: starry-services
 ```
 
 父 pom 管理版本：Spring Boot 3.2.1、Java 17、MyBatis-Plus 3.5.5、JWT 0.11.5、Lombok 1.18.32、OpenFeign、Resilience4j
 
 ### 7.2 数据库 / 索引 / Topic 命名规范
 
-> 所有存储资源名称必须与所属服务的 domain 名一一对应，消除歧义。统一前缀 `trae_`。
+> 所有存储资源名称必须与所属服务的 domain 名一一对应，消除歧义。统一前缀 `starry_`。
 
 #### MySQL 数据库
 
 | 服务 | 旧库名 | **新库名** | 变更 |
 |------|--------|-----------|------|
-| iam-service | `admin_system` | **`trae_iam`** | 重命名 |
-| user-service | `trae_user` | **`trae_user`** | 已对齐，无需变更 |
+| iam-service | `admin_system` | **`starry_iam`** | 重命名 |
+| user-service | `trae_user` | **`starry_user`** | 重命名 |
 
 #### Elasticsearch 索引
 
 | 服务 | 旧索引名 | **新索引名** | 变更 |
 |------|---------|------------|------|
-| audit-service | `sys_log` | **`trae_audit_log`** | 重命名 |
+| audit-service | `sys_log` | **`starry_audit_log`** | 重命名 |
 
 #### Kafka Topic
 
 | 生产者 | 消费者 | 旧 Topic | **新 Topic** | 变更 |
 |--------|--------|---------|------------|------|
-| iam-service (LogAspect) | audit-service (LogConsumer) | `sys-log-topic` | **`trae-audit-log`** | 重命名 |
+| iam-service (LogAspect) | audit-service (LogConsumer) | `sys-log-topic` | **`starry-audit-log`** | 重命名 |
 
 #### 命名规则
 
 ```
-MySQL 数据库：trae_{domain}          → trae_iam, trae_user
-ES 索引：     trae_{domain}_{entity} → trae_audit_log
-Kafka Topic： trae-{domain}-{event}  → trae-audit-log
+MySQL 数据库：starry_{domain}          → starry_iam, starry_user
+ES 索引：     starry_{domain}_{entity} → starry_audit_log
+Kafka Topic： starry-{domain}-{event}  → starry-audit-log
 ```
 
 - 所有名称小写，MySQL / ES 用下划线，Kafka 用连字符
@@ -556,9 +556,9 @@ Kafka Topic： trae-{domain}-{event}  → trae-audit-log
 
 ```
 nginx-gateway
-  ├── iam-service (依赖: mysql[trae_iam], redis, kafka, user-service)
-  ├── user-service (依赖: mysql[trae_user], redis)
-  ├── audit-service (依赖: kafka[trae-audit-log], elasticsearch[trae_audit_log], redis)
+  ├── iam-service (依赖: mysql[starry_iam], redis, kafka, user-service)
+  ├── user-service (依赖: mysql[starry_user], redis)
+  ├── audit-service (依赖: kafka[starry-audit-log], elasticsearch[starry_audit_log], redis)
   └── frontend
 
 基础设施（互相独立启动）：
@@ -582,7 +582,7 @@ nginx-gateway
 INTERNAL_SECRET=change-me-in-production
 
 # JWT 密钥（所有服务共享，需与签发方一致）
-JWT_SECRET=trae-admin-system-secret-key-must-be-very-long-and-secure-and-safe
+JWT_SECRET=starry-admin-system-secret-key-must-be-very-long-and-secure-and-safe
 
 # 数据库
 MYSQL_PASSWORD=your-mysql-password
@@ -597,8 +597,8 @@ MYSQL_PASSWORD=your-mysql-password
 ### 8.1 新增服务标准步骤（5 步）
 
 1. 创建 `services/{name}-service/`，pom.xml 指向父 pom，依赖 `common-lib`
-2. 包名 `com.trae.{name}`，主类 `{Name}ServiceApplication`
-3. `docker-compose.yml` 新增服务定义，加入 `trae-net`
+2. 包名 `com.starry.{name}`，主类 `{Name}ServiceApplication`
+3. `docker-compose.yml` 新增服务定义，加入 `starry-net`
 4. `nginx.conf` 新增 upstream + location（`/api/{name}/`）
 5. `services/pom.xml` `<modules>` 中添加 `<module>{name}-service</module>`
 
@@ -614,7 +614,7 @@ MYSQL_PASSWORD=your-mysql-password
 |------|------|-----------------|
 | 目录名 | `{domain}-service`（小写连字符）| `iam-service` |
 | Docker 服务名 | 同目录名 | `iam-service` |
-| Java 包名 | `com.trae.{domain}` | `com.trae.iam` |
+| Java 包名 | `com.starry.{domain}` | `com.starry.iam` |
 | Maven artifactId | `{domain}-service` | `iam-service` |
 | Spring 应用名 | `{domain}-service` | `iam-service` |
 | 主类名 | `{Domain}ServiceApplication` | `IamServiceApplication` |
@@ -625,9 +625,9 @@ MYSQL_PASSWORD=your-mysql-password
 
 | 维度 | 规范 | 示例 |
 |------|------|------|
-| MySQL 数据库名 | `trae_{domain}` | `trae_iam`, `trae_user` |
-| Elasticsearch 索引 | `trae_{domain}_{entity}` | `trae_audit_log` |
-| Kafka Topic | `trae-{domain}-{event}`（连字符）| `trae-audit-log` |
+| MySQL 数据库名 | `starry_{domain}` | `starry_iam`, `starry_user` |
+| Elasticsearch 索引 | `starry_{domain}_{entity}` | `starry_audit_log` |
+| Kafka Topic | `starry-{domain}-{event}`（连字符）| `starry-audit-log` |
 | Redis key 前缀 | `{domain}:`（冒号分隔）| `iam:token:`, `user:session:` |
 
 > **约束**：禁止使用 `admin`、`system`、`log`、`service` 等无领域含义的词作为存储资源名称的核心词。
@@ -646,10 +646,10 @@ MYSQL_PASSWORD=your-mysql-password
 
 | 术语 | 定义 | 对应位置 |
 |------|------|---------|
-| **SysUser** / 系统账号 | 登录后台管理系统的账号（平台管理员/租户管理员） | `com.trae.iam.modules.account.entity.SysUser` |
-| **AppUser** / C端用户 | 租户应用的终端注册用户 | `com.trae.user.entity.AppUser` |
+| **SysUser** / 系统账号 | 登录后台管理系统的账号（平台管理员/租户管理员） | `com.starry.iam.modules.account.entity.SysUser` |
+| **AppUser** / C端用户 | 租户应用的终端注册用户 | `com.starry.user.entity.AppUser` |
 | **PlatformAdmin** / 平台管理员 | 可管理所有租户的超级管理员 | `SysUser.isSuper = true` |
 | **TenantAdmin** / 租户管理员 | 单租户内的管理员 | `TenantUser.isTenantAdmin = true` |
-| **AuditLog** / 审计日志 | 系统操作记录（Kafka → ES） | `com.trae.audit.entity.SysLogDocument` |
+| **AuditLog** / 审计日志 | 系统操作记录（Kafka → ES） | `com.starry.audit.entity.SysLogDocument` |
 | **IAM** | Identity & Access Management | iam-service 全部职责 |
 | **内部接口** | 服务间调用专用接口，不经过 Nginx | `/api/internal/**`，需 X-Internal-Secret |
