@@ -137,13 +137,15 @@
 
 #### 区块四：模型能力标注（可选，供配置时参考）
 
+所有布尔能力字段统一使用 `supports_` 前缀命名，标准字段如下：
+
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| 支持工具调用 | 开关 | 是否支持 Function Calling / tool_use |
+| `supports_tool_call` | 开关 | 是否支持 Function Calling / tool_use |
+| `supports_vision` | 开关 | 是否支持图片输入（image_url in messages）|
+| `supports_audio` | 开关 | 是否支持音频输入 |
+| `supports_reasoning` | 开关 | 是否为推理模型（o1/o3/DeepSeek-R1 等，支持 thinking_budget）|
 | 支持结构化输出 | 开关 | 是否支持强制 JSON 输出（response_format: json_object）|
-| 支持视觉输入 | 开关 | 是否支持图片输入（image_url in messages）|
-| 支持音频输入 | 开关 | 是否支持音频输入 |
-| 推理模型 | 开关 | 是否为推理模型（o1/o3/DeepSeek-R1 等，支持 thinking_budget）|
 | 上下文窗口大小 | 数字 | Token 数量，如 128000 |
 | 最大输出 Token | 数字 | 单次最大输出 Token 数 |
 | 输入 Token 单价（USD/1M）| 小数 | 用于成本统计，非必填 |
@@ -327,6 +329,12 @@
 - 平台管理员收到站内通知：「模型 [X] 可用性测试失败（连续 N 次），最后错误：[错误信息]」
 - 可扩展：发送邮件 / Webhook 通知（P3）
 
+### 7.4 熔断机制
+
+当模型连续调用失败达到阈值时，LLM Gateway 自动触发熔断，暂停向该模型发送请求，待恢复后重新接入。
+
+**熔断触发后的处理链**：若模型触发熔断，LLM Gateway 按以下顺序处理：① 若 Agent 配置了 `fallback_model_id`，则立即切换备用模型重试；② 若备用模型也不可用或未配置，则返回错误码 `53001 MODEL_CIRCUIT_OPEN`；③ 熔断恢复后（半开状态探测成功），恢复为主模型。
+
 ---
 
 ## 8. 模型可见性控制
@@ -347,6 +355,8 @@
 - 仅返回状态为「启用」的模型
 - 仅返回对当前租户可见的模型（根据可见性规则）
 - 按模型名称排序，默认模型排在首位
+
+**租户查询过滤规则**：调用 `GET /api/v1/models` 时，API 层自动过滤当前租户无权访问的模型（即仅返回 `visibility=PUBLIC` 或租户在白名单内的模型），前端无需额外处理。
 
 ---
 

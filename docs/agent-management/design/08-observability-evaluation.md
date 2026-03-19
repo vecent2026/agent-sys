@@ -182,6 +182,13 @@ Session（会话）
 }
 ```
 
+> **Trace 命名空间（namespace）**：所有调用均采集 Trace，通过 `namespace` 字段区分场景：
+> - `debug`：Agent Studio 调试面板触发的调用（草稿配置，通常为单用户、低频）
+> - `production`：已发布 Agent 的正式调用（通过 API Key 鉴权）
+> - `batch_test`：批量测试任务触发的调用
+>
+> 可观测性面板默认仅展示 `production` Trace；勾选「包含调试记录」后显示 `debug` Trace。`debug` Trace 不计入 SLA 指标和成本统计。
+
 ### 2.3 Trace 存储策略
 
 | 数据 | 存储位置 | 保留时长 |
@@ -448,6 +455,8 @@ AI 回复：{{ assistant_response }}
 | 用户点踩率 > 20% | 站内通知 + 邮件（高优先级） |
 | 格式合规率 < 90% | 站内通知 |
 
+**差评 → 配置问题定位数据流**：用户提交差评后，系统自动关联该会话的完整 Trace（`trace_session_id`）。Agent 配置页的「线上反馈」标签（P1）聚合展示近 7 天的差评，点击任一差评可跳转到对应 Trace 详情，查看具体的 Prompt 输入、LLM 输出和工具调用链，辅助诊断问题根因。差评 Trace 可一键导出为测试用例，加入测试集用于回归验证。
+
 **差评会话归因：**
 
 点踩会话可以一键关联到具体的 Trace，帮助定位问题根因：
@@ -484,6 +493,15 @@ AI 回复：{{ assistant_response }}
 | 按租户 | 跨 Agent 的租户汇总 |
 | 按时间 | 小时/天/月维度聚合 |
 | 按 Turn 类型 | 调试 Token vs 正式调用 Token 分开计量 |
+
+**租户成本隔离**
+
+所有 Token 消耗、工具调用次数、知识库检索次数均按 `tenant_id` 独立统计，互不影响：
+
+- 平台管理员可查看全平台汇总及各租户明细
+- 租户管理员仅可查看本租户数据
+- 成本数据以天为粒度聚合（`cost_daily_stats` 表），支持按 Agent / Workflow / Skill 维度下钻
+- 平台层面的基础设施成本（如 Embedding 服务）可配置是否计入租户成本（默认计入）
 
 ### 6.2 成本计算
 

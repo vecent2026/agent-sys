@@ -357,6 +357,43 @@ CREATE TABLE `agent` (
 **联合索引设计说明**：
 - `idx_tenant_status (tenant_id, status, is_deleted)`：列表页按租户 + 状态过滤的最高频查询。
 
+**`draft_config` / `published_config` JSON Schema**
+
+两列均存储同一结构的 JSON 对象（`draft_config` 为草稿状态，`published_config` 为最新发布快照）：
+
+```json
+{
+  "agent_type": "react",
+  "system_prompt": "你是一个...",
+  "model_id": "uuid",
+  "model_params": {
+    "temperature": 0.7,
+    "max_tokens": 2048,
+    "top_p": 1.0,
+    "presence_penalty": 0.0,
+    "frequency_penalty": 0.0
+  },
+  "tool_ids": ["uuid1", "uuid2"],
+  "kb_ids": [{"kb_id": "uuid", "retrieval_mode": "fixed", "top_k": 5, "score_threshold": 0.6}],
+  "skill_ids": [{"skill_id": "uuid", "skill_version": "1.2.0"}],
+  "memory_config": { "window_size": 20, "summary_enabled": false },
+  "behavior_config": {
+    "max_steps": 10,
+    "timeout_ms": 60000,
+    "fallback_model_id": null,
+    "citation_enabled": true,
+    "context_injection_position": "before_user"
+  },
+  "security_config": {
+    "input_guardrail_enabled": true,
+    "output_guardrail_enabled": true,
+    "sensitive_word_action": "block"
+  }
+}
+```
+
+> `published_config` 在每次发布时由 `draft_config` 深拷贝生成，同时同步到 `agent_version` 表作为版本快照。
+
 ---
 
 ### 6.2 agent_version（版本快照表）
@@ -671,6 +708,25 @@ CREATE TABLE `kb_chunk` (
 **关键字段说明**：
 - `id`：与 Qdrant 中 Point 的 ID 保持一致，通过 UUID 可直接定位向量数据库中的对应条目。
 - Chunk 的文本内容不存储在 MySQL，减少数据库存储压力；需要展示 Chunk 内容时从 Qdrant Payload 中读取。
+
+---
+
+**向量存储迁移方案**
+
+当前设计支持 Qdrant（默认）和 pgvector（备选）两种向量存储，MySQL 只存元数据（chunk ID、document ID、tenant ID、状态等），向量数据存储在独立的向量数据库中。
+
+切换方案：
+
+| 步骤 | 操作 | 停机要求 |
+|------|------|---------|
+| 1 | 新向量库（目标）初始化，创建对应 Collection/Table | 无 |
+| 2 | 启动双写：新文档同时写入新旧两个向量库 | 无 |
+| 3 | 存量数据迁移：遍历 `kb_chunk` 表，按 `chunk_id` 从旧库读向量并写入新库 | 无（后台任务） |
+| 4 | 校验：比较两库向量数量和抽样相似度计算结果 | 无 |
+| 5 | 切流：修改配置 `VECTOR_STORE=pgvector`，新查询走新库 | 5 分钟（配置重载） |
+| 6 | 观察 24h 后，停止双写，清理旧库数据 | 无 |
+
+MySQL DDL 在两种方案下完全一致，无需改表。向量库的 Collection/Schema 由各自的初始化脚本管理。
 
 ---
 

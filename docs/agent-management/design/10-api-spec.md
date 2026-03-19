@@ -1,4 +1,4 @@
-# 智能体管理平台 Agent Service REST API 规范
+# 智能体服务 Agent Service REST API 规范
 
 **文档编号：** 10
 **所属层次：** 技术层
@@ -112,6 +112,22 @@ JWT Payload 中包含：
 | 50005 | 知识库索引未完成 |
 | 50006 | API Key 已过期 |
 | 50007 | 调用频率超限（Rate Limit） |
+
+**业务错误码分段（按模块）**
+
+| 模块 | 错误码范围 | 示例 |
+|------|-----------|------|
+| LLM 模型管理 | 51000–51099 | `51001 MODEL_NOT_FOUND`、`51002 MODEL_UNAVAILABLE`、`51003 MODEL_CIRCUIT_OPEN` |
+| 密钥管理 | 51100–51199 | `51101 SECRET_DECRYPT_FAILED`、`51102 SECRET_QUOTA_EXCEEDED` |
+| 知识库 | 51200–51399 | `51201 KB_NOT_FOUND`、`51202 DOC_PROCESS_FAILED`、`51203 EMBEDDING_FAILED` |
+| Skill 库 | 51400–51599 | `51401 SKILL_NOT_FOUND`、`51402 SKILL_EXEC_FAILED`、`51403 SKILL_VERSION_INCOMPATIBLE` |
+| 智能体 | 51600–51799 | `51601 AGENT_NOT_FOUND`、`51602 AGENT_PUBLISH_VALIDATION_FAILED`、`51603 AGENT_MAX_STEPS_EXCEEDED` |
+| 工作流 | 51800–51999 | `51801 WORKFLOW_NOT_FOUND`、`51802 WORKFLOW_EXEC_TIMEOUT`、`51803 HUMAN_TASK_TIMEOUT` |
+| 对话 / 调试 | 52000–52199 | `52001 SESSION_NOT_FOUND`、`52002 STREAM_INTERRUPTED`、`52003 CONTEXT_OVERFLOW` |
+| 可观测性 | 52200–52399 | `52201 TRACE_NOT_FOUND` |
+| API Key | 52400–52499 | `52401 APIKEY_INVALID`、`52402 APIKEY_REVOKED`、`52403 APIKEY_RATE_LIMITED` |
+
+> 所有业务错误码都以 `{ "code": 51601, "message": "...", "data": null }` 格式返回，HTTP 状态码统一为 4xx/5xx（见通用规范）。
 
 ### 1.6 HTTP 状态码约定
 
@@ -360,6 +376,8 @@ Authorization: Bearer eyJhbGc...
 **GET** `/api/models`
 
 分页获取模型列表。平台端可见全部；租户端只见 `status=active` 的模型（用于 Agent 配置选择）。
+
+> **可见性自动过滤**：API 根据当前 JWT 中的 `tenant_id` 自动过滤，仅返回以下条件之一成立的模型：① `visibility = 'PUBLIC'`；② `visibility = 'TENANT_WHITELIST'` 且当前租户在白名单内；③ 当前请求者为平台管理员（`role = 'PLATFORM_ADMIN'`，可查看所有模型）。前端无需额外过滤。
 
 #### Query 参数
 
@@ -1054,6 +1072,8 @@ Authorization: Bearer eyJhbGc...
 | `query` | string | 是 | 检索查询文本 |
 | `top_k` | integer | 否 | 返回最相关片段数量，默认 5，最大 20 |
 | `score_threshold` | float | 否 | 相似度阈值，低于此值不返回，默认 0.5 |
+
+> **运行时参数覆盖**：请求体中的检索参数（`top_k`、`score_threshold`、`retrieval_strategy`）为可选项，若提供则覆盖知识库级别的默认配置；若不提供则使用知识库创建时设定的默认值。这一覆盖仅对本次检索有效，不修改知识库配置。
 
 #### 请求示例
 
@@ -2209,6 +2229,8 @@ Authorization: Bearer eyJhbGc...
 
 对 Agent 或工作流草稿进行实时流式调试，通过 SSE（Server-Sent Events）返回中间推理步骤与最终结果。
 
+> **权限要求**：仅 Agent 的编辑者（`role = 'TENANT_ADMIN'` 或 Agent 的创建者）可调用；使用草稿配置（`draft_config`）执行，不消耗已发布 Agent 的配额；产生的 Trace 标记为 `namespace=debug`。
+
 #### Body 参数
 
 | 参数 | 类型 | 必填 | 说明 |
@@ -2795,6 +2817,66 @@ Content-Type: application/json
   }
 }
 ```
+
+---
+
+### 10.5 查询 Trace 详情
+
+**GET** `/api/observability/traces/{trace_id}`
+
+返回完整调用树，包含 Session → Turn → AgentRun → LLM Call / Tool Call 的层级结构。
+
+#### Path 参数
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `trace_id` | string | Trace ID |
+
+#### 请求示例
+
+```http
+GET /api/observability/traces/trace_xxx
+Authorization: Bearer eyJhbGc...
+```
+
+#### 成功响应
+
+```json
+{
+  "code": 200,
+  "data": {
+    "trace_id": "trace_xxx",
+    "namespace": "production",
+    "session_id": "session_xxx",
+    "agent_id": "agent_xxx",
+    "total_duration_ms": 2340,
+    "total_tokens": 1024,
+    "turns": [
+      {
+        "turn_id": "turn_xxx",
+        "user_input": "...",
+        "agent_output": "...",
+        "agent_runs": [
+          {
+            "run_id": "run_xxx",
+            "step": 1,
+            "thought": "...",
+            "action": "tool_call",
+            "llm_calls": [],
+            "tool_calls": []
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+#### 常见错误码
+
+| 错误码 | 说明 |
+|--------|------|
+| 52201 | Trace 不存在 |
 
 ---
 
