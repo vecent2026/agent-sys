@@ -143,6 +143,7 @@ CREATE TABLE `tenant_role` (
   `role_name`   VARCHAR(50)  NOT NULL               COMMENT '角色名称',
   `role_key`    VARCHAR(50)  NOT NULL               COMMENT '角色标识',
   `is_builtin`  TINYINT(1)   NOT NULL DEFAULT 0     COMMENT '是否内置角色: 1=租户初始化时创建（不可删除）',
+  `is_super`    TINYINT(1)   NOT NULL DEFAULT 0     COMMENT '是否超管角色: 1=持有此角色的用户拥有全部租户权限',
   `description` VARCHAR(200) DEFAULT NULL           COMMENT '描述',
   `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

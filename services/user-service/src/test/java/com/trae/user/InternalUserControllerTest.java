@@ -12,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.util.StringUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.*;
@@ -159,5 +160,25 @@ class InternalUserControllerTest {
         assertEquals("19541189242", result.get("mobile"));
         verify(appUserMapper).insert(any(AppUser.class));
         verify(appUserMapper, times(2)).selectOne(any(LambdaQueryWrapper.class));
+    }
+
+    @Test
+    void ensureUser_backfillsPassword_whenExistingUserHasNoPassword() {
+        AppUser existing = makeUser(102L, "19541189242", null);
+        existing.setNickname("风雷翅");
+        when(appUserMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(existing);
+        when(passwordEncoder.encode("Admin@123")).thenReturn("encoded_pwd");
+
+        Map<String, Object> result = controller.ensureUser(Map.of(
+                "mobile", "19541189242",
+                "nickname", "风雷翅",
+                "password", "Admin@123"
+        ));
+
+        assertEquals(102L, result.get("id"));
+        verify(passwordEncoder).encode("Admin@123");
+        verify(appUserMapper).updateById(argThat(user ->
+                user.getId().equals(102L) && StringUtils.hasText(user.getPassword())
+        ));
     }
 }

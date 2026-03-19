@@ -85,6 +85,7 @@ const TenantFormDrawer: React.FC<TenantFormDrawerProps> = ({ open, onClose, edit
         updateMutation.mutate({ id: editing.id, data });
       } else {
         const adminMobile = values.adminMobile?.trim();
+        const adminPassword = values.adminPassword?.trim();
         const data: TenantDto = {
           tenantCode: values.tenantCode,
           tenantName: values.tenantName,
@@ -95,7 +96,11 @@ const TenantFormDrawer: React.FC<TenantFormDrawerProps> = ({ open, onClose, edit
           expireTime,
           maxUsers: values.maxUsers ?? undefined,
           adminUser: adminMobile
-            ? { mobile: adminMobile, nickname: values.adminNickname?.trim() || adminMobile }
+            ? {
+                mobile: adminMobile,
+                nickname: values.adminNickname?.trim() || adminMobile,
+                password: adminPassword,
+              }
             : undefined,
         };
         createMutation.mutate(data);
@@ -187,7 +192,22 @@ const TenantFormDrawer: React.FC<TenantFormDrawerProps> = ({ open, onClose, edit
               name="adminMobile"
               label="初始管理员手机号"
               rules={[
-                { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的11位手机号' },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    const password = getFieldValue('adminPassword')?.trim();
+                    const mobile = value?.trim();
+                    if (!mobile && !password) {
+                      return Promise.resolve();
+                    }
+                    if (!mobile) {
+                      return Promise.reject(new Error('请输入初始管理员手机号'));
+                    }
+                    if (!/^1[3-9]\d{9}$/.test(mobile)) {
+                      return Promise.reject(new Error('请输入有效的11位手机号'));
+                    }
+                    return Promise.resolve();
+                  },
+                }),
               ]}
             >
               <Input placeholder="选填，创建后可再邀请管理员" maxLength={11} />
@@ -195,6 +215,32 @@ const TenantFormDrawer: React.FC<TenantFormDrawerProps> = ({ open, onClose, edit
 
             <Form.Item name="adminNickname" label="管理员昵称">
               <Input placeholder="选填，不填默认使用手机号" maxLength={50} />
+            </Form.Item>
+
+            <Form.Item
+              name="adminPassword"
+              label="初始管理员密码"
+              dependencies={['adminMobile']}
+              rules={[
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    const mobile = getFieldValue('adminMobile')?.trim();
+                    const password = value?.trim();
+                    if (!mobile && !password) {
+                      return Promise.resolve();
+                    }
+                    if (!password) {
+                      return Promise.reject(new Error('请输入初始管理员密码'));
+                    }
+                    if (password.length < 6 || password.length > 20) {
+                      return Promise.reject(new Error('初始密码长度为 6-20 位'));
+                    }
+                    return Promise.resolve();
+                  },
+                }),
+              ]}
+            >
+              <Input.Password placeholder="请输入初始管理员密码" maxLength={20} />
             </Form.Item>
           </>
         )}

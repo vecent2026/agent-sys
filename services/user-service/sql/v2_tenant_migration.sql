@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS `tenant_user` (
   `user_id`   BIGINT   NOT NULL COMMENT 'app_user.id',
   `tenant_id` BIGINT   NOT NULL,
   `is_admin`  TINYINT  NOT NULL DEFAULT 0 COMMENT '是否租户管理员',
+  `status`    TINYINT  NOT NULL DEFAULT 1 COMMENT '成员状态: 1正常 0禁用',
   `join_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY `uk_user_tenant` (`user_id`, `tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户-租户成员关系';
