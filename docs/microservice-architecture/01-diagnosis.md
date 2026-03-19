@@ -1,6 +1,7 @@
 # 微服务架构诊断报告
 
 > 版本：v1.0 | 诊断日期：2026-03-19 | 范围：admin-service / user-service / log-service + Nginx 网关 + 前端
+> 状态：**已归档** | 整改结果见 [02-target-architecture.md](./02-target-architecture.md)
 
 ---
 
