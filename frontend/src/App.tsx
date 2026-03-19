@@ -4,9 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import zhCN from 'antd/locale/zh_CN';
 import { AppRouter } from '@/router/AppRouter';
 import { useUserStore } from '@/store/userStore';
-import { getUserInfo, getMenus } from '@/api/auth';
+import { getTenantPermissions, getTenantUserInfo } from '@/api/auth';
+import { buildTenantMenus } from '@/config/tenantMenus';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import type { Permission } from '@/types/permission';
 import 'dayjs/locale/zh-cn';
 import { appTheme } from '@/design-system/theme';
 
@@ -25,34 +25,39 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const restoreUserState = async () => {
-      const { userInfo, menus, setUserInfo, setMenus, setPermissions } = useUserStore.getState();
+      const {
+        userInfo,
+        menus,
+        setUserInfo,
+        setMenus,
+        setPermissions,
+        setIsTenantAdmin,
+        setCurrentTenant,
+        tenantList,
+      } = useUserStore.getState();
       if (token.access && typeof token.access === 'string' && token.access.trim() !== '' && !userInfo && !menus.length) {
         setIsRestoring(true);
         try {
-          const fetchedUserInfo = await getUserInfo();
+          const fetchedUserInfo = await getTenantUserInfo();
+          const fetchedPermissions = await getTenantPermissions();
+          const permissions = Array.isArray(fetchedPermissions) ? fetchedPermissions : [];
+          const roleKeys = Array.isArray(fetchedUserInfo.roles) ? fetchedUserInfo.roles : [];
+          const isTenantAdmin = roleKeys.includes('tenant_admin') || roleKeys.includes('TENANT_SUPER_ADMIN');
+
           setUserInfo(fetchedUserInfo);
-
-          const fetchedMenus = await getMenus();
-          setMenus(fetchedMenus);
-
-          const extractPermissions = (menuItems: Permission[]): string[] => {
-            const perms: string[] = [];
-            const traverse = (items: Permission[]) => {
-              items.forEach(item => {
-                if (item.permissionKey) {
-                  perms.push(item.permissionKey);
-                }
-                if (item.children && item.children.length > 0) {
-                  traverse(item.children);
-                }
-              });
-            };
-            traverse(menuItems);
-            return perms;
-          };
-          
-          const permissions = extractPermissions(fetchedMenus);
           setPermissions(permissions);
+          setIsTenantAdmin(isTenantAdmin);
+          setMenus(buildTenantMenus(permissions, isTenantAdmin));
+
+          const tenantInfo = (fetchedUserInfo as any).currentTenant || (fetchedUserInfo as any).tenant;
+          const tenantId = tenantInfo?.tenantId ?? tenantInfo?.id ?? (fetchedUserInfo as any).currentTenantId;
+          const matchedTenant = typeof tenantId === 'number'
+            ? tenantList.find((tenant) => tenant.tenantId === tenantId)
+            : null;
+          const tenantName = tenantInfo?.tenantName ?? tenantInfo?.name ?? matchedTenant?.tenantName;
+          if (typeof tenantId === 'number' && typeof tenantName === 'string' && tenantName.trim() !== '') {
+            setCurrentTenant(tenantId, tenantName);
+          }
         } catch (error) {
           console.error('Failed to restore user state:', error);
           setTimeout(() => {
