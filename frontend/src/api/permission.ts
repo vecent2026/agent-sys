@@ -2,7 +2,7 @@ import request from '@/utils/request';
 import type { Permission, PermissionForm } from '@/types/permission';
 
 export const getPermissionTree = () => {
-  return request.get<Permission[]>('/api/permissions/tree');
+  return request.get<Permission[]>('/api/rbac/roles/available-permissions');
 };
 
 export const createPermission = (data: PermissionForm) => {

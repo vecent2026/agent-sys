@@ -28,7 +28,9 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         String key = RATE_LIMIT_PREFIX + uri + ":" + clientIp;
 
         // Login endpoint limit: 5 requests per minute
-        if (uri.contains("/api/auth/login")) {
+        if ("/api/auth/login".equals(uri)
+                || "/api/platform/auth/login".equals(uri)
+                || "/api/tenant/auth/login".equals(uri)) {
             Long count = redisUtil.increment(key);
             if (count == 1) {
                 redisUtil.set(key, count.toString(), 1, TimeUnit.MINUTES);

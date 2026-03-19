@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Table, Button, Form, Input, message, Popconfirm, Tree, Drawer, Pagination, Space } from 'antd';
+import { Table, Button, Form, Input, message, Popconfirm, Tree, Drawer, Pagination, Space, Tooltip, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getRoleList, createRole, updateRole, deleteRole, getRolePermissions, assignRolePermissions } from '@/api/role';
@@ -105,6 +105,10 @@ const RoleList: React.FC = () => {
   };
 
   const handleEdit = (record: Role) => {
+    if (record.isBuiltin === 1) {
+      message.warning('内置超管角色不可编辑');
+      return;
+    }
     setEditingId(record.id);
     form.setFieldsValue(record);
     setVisible(true);
@@ -133,6 +137,10 @@ const RoleList: React.FC = () => {
   };
 
   const handlePermSubmit = () => {
+    if (currentRole?.isBuiltin === 1) {
+      message.warning('内置超管角色权限为系统全量权限，不支持修改');
+      return;
+    }
     if (currentRole) {
       assignPermMutation.mutate({
         id: currentRole.id,
@@ -153,6 +161,12 @@ const RoleList: React.FC = () => {
       title: '角色标识',
       dataIndex: 'roleKey',
       key: 'roleKey',
+      render: (value: string, record) => (
+        <Space size="small">
+          <span>{value}</span>
+          {record.isBuiltin === 1 && <Tag color="red">内置超管</Tag>}
+        </Space>
+      ),
     },
     {
       title: '描述',
@@ -183,22 +197,38 @@ const RoleList: React.FC = () => {
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
-          <AuthButton perm="sys:role:edit">
-            <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
-              编辑
-            </Button>
+          <AuthButton perm="tenant:role:edit">
+            {record.isBuiltin === 1 ? (
+              <Tooltip title="内置超管角色不可编辑">
+                <Button type="link" size="small" icon={<EditOutlined />} disabled>
+                  编辑
+                </Button>
+              </Tooltip>
+            ) : (
+              <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
+                编辑
+              </Button>
+            )}
           </AuthButton>
-          <AuthButton perm="role:assign">
+          <AuthButton perm="tenant:role:assign">
             <Button type="link" size="small" icon={<SettingOutlined />} onClick={() => handleAssignPerm(record)}>
               分配权限
             </Button>
           </AuthButton>
-          <AuthButton perm="sys:role:remove">
-            <Popconfirm title="确定删除吗？" onConfirm={() => handleDelete(record.id)}>
-              <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-                删除
-              </Button>
-            </Popconfirm>
+          <AuthButton perm="tenant:role:remove">
+            {record.isBuiltin === 1 ? (
+              <Tooltip title="内置超管角色不可删除">
+                <Button type="link" size="small" danger icon={<DeleteOutlined />} disabled>
+                  删除
+                </Button>
+              </Tooltip>
+            ) : (
+              <Popconfirm title="确定删除吗？" onConfirm={() => handleDelete(record.id)}>
+                <Button type="link" size="small" danger icon={<DeleteOutlined />}>
+                  删除
+                </Button>
+              </Popconfirm>
+            )}
           </AuthButton>
         </Space>
       ),
@@ -209,7 +239,7 @@ const RoleList: React.FC = () => {
     <PageContainer>
       <TablePageLayout
         toolbar={
-          <AuthButton perm="sys:role:add">
+          <AuthButton perm="tenant:role:add">
             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
               新增角色
             </Button>
@@ -315,6 +345,7 @@ const RoleList: React.FC = () => {
               <Button
                 type="primary"
                 onClick={handlePermSubmit}
+                disabled={currentRole?.isBuiltin === 1}
                 loading={assignPermMutation.isPending}
               >
                 保存
@@ -323,13 +354,19 @@ const RoleList: React.FC = () => {
           </div>
         }
       >
+        {currentRole?.isBuiltin === 1 && (
+          <div style={{ marginBottom: 12, color: designTokens.colorTextTertiary }}>
+            内置超管角色默认拥有租户全部权限，权限树仅展示不可编辑。
+          </div>
+        )}
         {permTree && (
           <Tree
             checkable
             defaultExpandAll
             treeData={permissionTreeData}
             checkedKeys={checkedKeys}
-            onCheck={(keys) => setCheckedKeys(normalizeCheckedKeys(keys as any))}
+            disabled={currentRole?.isBuiltin === 1}
+            onCheck={(keys) => setCheckedKeys(normalizeCheckedKeys(keys))}
           />
         )}
       </Drawer>

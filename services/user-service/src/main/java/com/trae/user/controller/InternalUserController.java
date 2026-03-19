@@ -121,9 +121,23 @@ public class InternalUserController {
         return tenantUserMapper.selectList(
                 new LambdaQueryWrapper<TenantUser>()
                         .eq(TenantUser::getUserId, userId)
+                        .eq(TenantUser::getStatus, 1)
                         .select(TenantUser::getTenantId))
                 .stream()
                 .map(TenantUser::getTenantId)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 查询用户的租户成员关系列表（含状态）
+     */
+    @GetMapping("/users/{userId}/tenant-memberships")
+    public List<Map<String, Object>> getUserTenantMemberships(@PathVariable Long userId) {
+        return tenantUserMapper.selectList(
+                        new LambdaQueryWrapper<TenantUser>()
+                                .eq(TenantUser::getUserId, userId))
+                .stream()
+                .map(this::toTenantUserMap)
                 .collect(Collectors.toList());
     }
 
@@ -145,9 +159,64 @@ public class InternalUserController {
             tu.setUserId(userId);
             tu.setTenantId(tenantId);
             tu.setIsAdmin(isAdmin);
+            tu.setStatus(1);
             tu.setJoinTime(LocalDateTime.now());
             tenantUserMapper.insert(tu);
+        } else {
+            TenantUser update = new TenantUser();
+            update.setStatus(1);
+            tenantUserMapper.update(update, new LambdaQueryWrapper<TenantUser>()
+                    .eq(TenantUser::getUserId, userId)
+                    .eq(TenantUser::getTenantId, tenantId));
         }
+        return Result.success();
+    }
+
+    /**
+     * 查询租户成员关系（按 tenantId）
+     */
+    @GetMapping("/tenant-users")
+    public List<Map<String, Object>> listTenantUsers(@RequestParam Long tenantId) {
+        return tenantUserMapper.selectList(new LambdaQueryWrapper<TenantUser>()
+                        .eq(TenantUser::getTenantId, tenantId))
+                .stream()
+                .map(this::toTenantUserMap)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 查询单个租户成员关系
+     */
+    @GetMapping("/tenant-users/{userId}")
+    public Map<String, Object> getTenantUser(@PathVariable Long userId, @RequestParam Long tenantId) {
+        TenantUser tenantUser = tenantUserMapper.selectOne(new LambdaQueryWrapper<TenantUser>()
+                .eq(TenantUser::getUserId, userId)
+                .eq(TenantUser::getTenantId, tenantId));
+        if (tenantUser == null) {
+            return Collections.emptyMap();
+        }
+        return toTenantUserMap(tenantUser);
+    }
+
+    /**
+     * 更新租户成员状态（1=正常 0=禁用）
+     */
+    @PutMapping("/tenant-users/status")
+    public Result<Void> updateTenantUserStatus(@RequestBody Map<String, Object> body) {
+        Long userId = Long.valueOf(body.get("userId").toString());
+        Long tenantId = Long.valueOf(body.get("tenantId").toString());
+        Integer status = Integer.valueOf(body.getOrDefault("status", 1).toString());
+
+        TenantUser tenantUser = tenantUserMapper.selectOne(new LambdaQueryWrapper<TenantUser>()
+                .eq(TenantUser::getUserId, userId)
+                .eq(TenantUser::getTenantId, tenantId));
+
+        if (tenantUser == null) {
+            return Result.success();
+        }
+
+        tenantUser.setStatus(status);
+        tenantUserMapper.updateById(tenantUser);
         return Result.success();
     }
 
@@ -176,6 +245,17 @@ public class InternalUserController {
         m.put("gender", user.getGender());
         m.put("birthday", user.getBirthday());
         m.put("registerTime", user.getRegisterTime());
+        return m;
+    }
+
+    private Map<String, Object> toTenantUserMap(TenantUser tenantUser) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", tenantUser.getId());
+        m.put("userId", tenantUser.getUserId());
+        m.put("tenantId", tenantUser.getTenantId());
+        m.put("isAdmin", tenantUser.getIsAdmin());
+        m.put("status", tenantUser.getStatus() == null ? 1 : tenantUser.getStatus());
+        m.put("joinTime", tenantUser.getJoinTime());
         return m;
     }
 }

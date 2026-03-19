@@ -23,5 +23,8 @@ public class TenantUser {
     /** 是否租户管理员：0=否 1=是 */
     private Integer isAdmin;
 
+    /** 成员状态：1=正常 0=禁用 */
+    private Integer status;
+
     private LocalDateTime joinTime;
 }

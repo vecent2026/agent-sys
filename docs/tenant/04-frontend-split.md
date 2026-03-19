@@ -670,7 +670,7 @@ navigate(firstPath, { replace: true });
   底部：已选 N 项  [取消] [保存]
 
 保存交互：
-  → 调用 PUT /api/roles/{id}/permissions
+  → 调用 PUT /api/rbac/roles/{id}/permissions
   → 后端返回 200：Drawer 关闭，列表刷新「权限数量」列
   → 后端返回错误（含未授权节点）：Toast 提示后端错误信息，不关闭抽屉
 ```
@@ -691,6 +691,7 @@ navigate(firstPath, { replace: true });
   [禁用]     → 二次确认，调用 PUT /api/tenant/members/{userId}/status
   [移除]     → 二次确认："移除后，该成员将无法访问本租户，账号本身不受影响。确认移除？"
              → 调用 DELETE /api/tenant/members/{userId}
+             → 若命中“最后一名超管”保护，展示后端 message（明确原因）
 ```
 
 **角色分配抽屉（成员-角色分配）**：
@@ -707,7 +708,18 @@ navigate(firstPath, { replace: true });
 
 保存：
   → 调用 PUT /api/tenant/members/{userId}/roles
+  → 若当前成员是最后一名超管且移除了超管角色，前端先提示并阻止提交
+  → 若后端仍返回保护错误，按 message 原样展示
   → 成功：抽屉关闭，列表行「角色」列实时更新
+```
+
+**角色页补充交互（内置超管）**：
+
+```
+内置超管角色（is_builtin=1）：
+  - 编辑按钮置灰，提示“内置超管角色不可编辑”
+  - 删除按钮置灰，提示“内置超管角色不可删除”
+  - 权限分配抽屉：权限树全勾选展示、整体只读，保存按钮禁用
 ```
 
 ---
@@ -827,7 +839,7 @@ location /api/platform/ {
 location /api/tenant/ {
     proxy_pass http://admin-service:8081;
 }
-# 其余 /api/v1/、/api/roles 等保持现有
+# 其余 /api/v1/、/api/rbac/roles 等保持现有
 ```
 
 ---

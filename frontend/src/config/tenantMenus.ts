@@ -78,7 +78,7 @@ const ALL_TENANT_MENUS: Permission[] = [
         parentId: 200,
         name: '成员管理',
         type: 'MENU',
-        permissionKey: 'tenant:user:list',
+        permissionKey: 'tenant:member:list',
         path: '/system/user',
         component: 'system/user/index',
         sort: 2,

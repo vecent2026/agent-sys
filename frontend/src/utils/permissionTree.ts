@@ -29,12 +29,12 @@ export function toCheckablePermissionTreeData(nodes: PermissionTreeNodeLike[]): 
 export function collectGrantablePermissionIds(nodes: PermissionTreeNodeLike[]): number[] {
   const ids: number[] = [];
   const walk = (list: PermissionTreeNodeLike[]) => {
-    for (const n of list) {
-      if (n.permissionKey) {
-        const id = Number(n.id);
+    for (const node of list) {
+      if (node.permissionKey) {
+        const id = Number(node.id);
         if (Number.isFinite(id)) ids.push(id);
       }
-      if (n.children?.length) walk(n.children);
+      if (node.children?.length) walk(node.children);
     }
   };
   walk(nodes);

@@ -33,11 +33,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-
         try {
             final String authorizationHeader = request.getHeader("Authorization");
 
             if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+                chain.doFilter(request, response);
                 return;
             }
 
@@ -46,17 +46,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 claims = jwtUtil.extractAllClaims(jwt);
             } catch (Exception e) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "无效或过期的 Token");
                 return;
             }
 
-            // 跳过 preToken（仅用于选租户，不需要 SecurityContext）
+            // preToken 仅允许用于选择租户接口
             if (jwtUtil.isPreToken(claims)) {
+                String uri = request.getRequestURI();
+                if (!"/api/tenant/auth/select".equals(uri) && !"/api/tenant/auth/select-tenant".equals(uri)) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "临时 Token 仅可用于选择租户");
+                    return;
+                }
+                chain.doFilter(request, response);
                 return;
             }
 
             // 黑名单检查
             String jti = jwtUtil.getJti(claims);
             if (jti != null && redisUtil.hasKey("blacklist:" + jti)) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token 已失效");
                 return;
             }
 
@@ -68,20 +76,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 int tokenVersion = jwtUtil.getTokenVersion(claims);
                 String redisVersion = redisUtil.get("platform:version:" + userId);
                 if (redisVersion != null && Integer.parseInt(redisVersion) != tokenVersion) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token 已失效，请重新登录");
                     return;
                 }
                 // 平台端不设 TenantContext
             } else {
                 // 租户端：校验 tenant data_version
                 Long tenantId = jwtUtil.getTenantId(claims);
+                if (tenantId == null) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "租户上下文缺失");
+                    return;
+                }
                 int tenantVersion = jwtUtil.getTenantVersion(claims);
                 String redisVersion = redisUtil.get("tenant:version:" + tenantId);
                 if (redisVersion != null && Integer.parseInt(redisVersion) != tenantVersion) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "租户 Token 已失效，请重新登录");
                     return;
                 }
-                if (tenantId != null) {
-                    TenantContext.setTenantId(tenantId);
-                }
+                TenantContext.setTenantId(tenantId);
             }
 
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -96,9 +108,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
                 List<SimpleGrantedAuthority> grantedAuthorities = (authorities != null)
                         ? authorities.stream()
-                            .filter(StringUtils::hasText)
-                            .map(SimpleGrantedAuthority::new)
-                            .collect(Collectors.toList())
+                        .filter(StringUtils::hasText)
+                        .map(SimpleGrantedAuthority::new)
+                        .collect(Collectors.toList())
                         : List.of();
 
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
@@ -106,8 +118,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
-        } finally {
+
             chain.doFilter(request, response);
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token 版本格式错误");
+        } finally {
             TenantContext.clear();
         }
     }

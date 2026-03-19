@@ -5,7 +5,7 @@ import com.trae.admin.modules.rbac.dto.RoleDto;
 import com.trae.admin.modules.rbac.entity.SysRole;
 import com.trae.admin.modules.rbac.mapper.SysRoleMapper;
 import com.trae.admin.modules.rbac.mapper.SysRolePermissionMapper;
-import com.trae.admin.modules.tenant.mapper.TenantUserRoleMapper;
+import com.trae.admin.modules.user.mapper.SysUserRoleMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -19,14 +19,14 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * RoleServiceImpl 单元测试（已使用 TenantUserRoleMapper 替代旧 SysUserRoleMapper）
+ * RoleServiceImpl 单元测试
  */
 @ExtendWith(MockitoExtension.class)
 class RoleServiceImplTest {
 
     @Mock SysRoleMapper sysRoleMapper;
     @Mock SysRolePermissionMapper sysRolePermissionMapper;
-    @Mock TenantUserRoleMapper tenantUserRoleMapper;   // 新依赖
+    @Mock SysUserRoleMapper sysUserRoleMapper;
 
     @InjectMocks
     private RoleServiceImpl roleService;
@@ -35,7 +35,8 @@ class RoleServiceImplTest {
 
     @Test
     void delete_roleHasNoUsers_deletesSuccessfully() {
-        when(tenantUserRoleMapper.selectCount(any())).thenReturn(0L);
+        when(sysUserRoleMapper.selectCount(any())).thenReturn(0L);
+        when(sysRoleMapper.selectBatchIds(List.of(1L))).thenReturn(List.of());
 
         roleService.delete(List.of(1L));
 
@@ -45,7 +46,7 @@ class RoleServiceImplTest {
 
     @Test
     void delete_roleHasUsers_throwsBusinessException() {
-        when(tenantUserRoleMapper.selectCount(any())).thenReturn(2L);
+        when(sysUserRoleMapper.selectCount(any())).thenReturn(2L);
 
         assertThrows(BusinessException.class, () -> roleService.delete(List.of(1L)));
 

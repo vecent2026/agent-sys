@@ -3,6 +3,8 @@ export interface Role {
   roleName: string;
   roleKey: string;
   description?: string;
+  isBuiltin?: number;
+  isSuper?: number;
   createTime: string | null;
   updateTime: string | null;
   createBy: string;

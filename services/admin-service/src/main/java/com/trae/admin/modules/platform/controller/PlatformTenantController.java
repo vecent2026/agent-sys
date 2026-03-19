@@ -97,4 +97,26 @@ public class PlatformTenantController {
         tenantService.updatePermissions(id, body.getOrDefault("permissionIds", List.of()));
         return Result.success();
     }
+
+    @Operation(summary = "校验租户编码是否可用")
+    @GetMapping("/check-code")
+    @PreAuthorize("hasAuthority('platform:tenant:add') or hasAuthority('platform:tenant:edit')")
+    public Result<Boolean> checkCode(@RequestParam String code,
+                                     @RequestParam(required = false) Long id) {
+        return Result.success(tenantService.checkCodeAvailable(code, id));
+    }
+
+    @Operation(summary = "租户统计")
+    @GetMapping("/{id}/stats")
+    @PreAuthorize("hasAuthority('platform:tenant:query')")
+    public Result<Map<String, Object>> stats(@PathVariable Long id) {
+        return Result.success(tenantService.getStats(id));
+    }
+
+    @Operation(summary = "租户成员列表（平台视角）")
+    @GetMapping("/{id}/members")
+    @PreAuthorize("hasAuthority('platform:tenant:query')")
+    public Result<List<Map<String, Object>>> members(@PathVariable Long id) {
+        return Result.success(tenantService.listMembers(id));
+    }
 }
