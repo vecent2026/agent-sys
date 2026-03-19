@@ -63,4 +63,5 @@ coverage/
 # 备份文件
 *.bak
 *.backup
+scripts/release/backup_*.sql
 .claude/worktrees/
