@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.*;
@@ -114,5 +115,49 @@ class InternalUserControllerTest {
         Map<String, Object> result = controller.verifyUser(body);
 
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void ensureUser_setsDefaultRegisterSource_whenCreatingNewUser() {
+        when(appUserMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        doAnswer(invocation -> {
+            AppUser inserted = invocation.getArgument(0);
+            inserted.setId(100L);
+            return 1;
+        }).when(appUserMapper).insert(any(AppUser.class));
+
+        Map<String, Object> result = controller.ensureUser(Map.of(
+                "mobile", "19541189242",
+                "nickname", "风雷翅"
+        ));
+
+        assertEquals(100L, result.get("id"));
+        verify(appUserMapper).insert(argThat(user ->
+                "19541189242".equals(user.getMobile())
+                        && "风雷翅".equals(user.getNickname())
+                        && "SYSTEM".equals(user.getRegisterSource())
+                        && Integer.valueOf(1).equals(user.getStatus())
+        ));
+    }
+
+    @Test
+    void ensureUser_returnsExistingUser_whenConcurrentInsertHitsUniqueKey() {
+        AppUser existing = makeUser(101L, "19541189242", null);
+        existing.setNickname("风雷翅");
+
+        when(appUserMapper.selectOne(any(LambdaQueryWrapper.class)))
+                .thenReturn(null)
+                .thenReturn(existing);
+        doThrow(new DuplicateKeyException("Duplicate entry")).when(appUserMapper).insert(any(AppUser.class));
+
+        Map<String, Object> result = controller.ensureUser(Map.of(
+                "mobile", "19541189242",
+                "nickname", "风雷翅"
+        ));
+
+        assertEquals(101L, result.get("id"));
+        assertEquals("19541189242", result.get("mobile"));
+        verify(appUserMapper).insert(any(AppUser.class));
+        verify(appUserMapper, times(2)).selectOne(any(LambdaQueryWrapper.class));
     }
 }

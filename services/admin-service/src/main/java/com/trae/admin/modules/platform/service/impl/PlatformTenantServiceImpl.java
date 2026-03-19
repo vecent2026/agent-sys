@@ -287,7 +287,10 @@ public class PlatformTenantServiceImpl implements PlatformTenantService {
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("init tenant admin failed tenantId={}", tenantId, e);
+            log.error("init tenant admin failed tenantId={}, mobile={}",
+                    tenantId,
+                    dto.getAdminUser() != null ? dto.getAdminUser().getMobile() : null,
+                    e);
             throw new BusinessException("初始化管理员失败");
         }
     }

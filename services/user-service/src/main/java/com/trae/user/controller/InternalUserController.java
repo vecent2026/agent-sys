@@ -8,6 +8,7 @@ import com.trae.user.mapper.AppUserMapper;
 import com.trae.user.mapper.TenantUserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -84,21 +85,30 @@ public class InternalUserController {
     @PostMapping("/users/ensure")
     public Map<String, Object> ensureUser(@RequestBody Map<String, Object> body) {
         String mobile = (String) body.get("mobile");
-        AppUser existing = appUserMapper.selectOne(
-                new LambdaQueryWrapper<AppUser>().eq(AppUser::getMobile, mobile));
+        AppUser existing = getUserByMobileInternal(mobile);
         if (existing != null) return toMap(existing);
 
         AppUser newUser = new AppUser();
         newUser.setMobile(mobile);
         newUser.setNickname((String) body.getOrDefault("nickname", mobile));
+        newUser.setRegisterSource("SYSTEM");
         newUser.setStatus(1);
         newUser.setIsDeleted(0);
         newUser.setRegisterTime(LocalDateTime.now());
         if (body.get("password") != null) {
             newUser.setPassword(passwordEncoder.encode((String) body.get("password")));
         }
-        appUserMapper.insert(newUser);
-        return toMap(newUser);
+        try {
+            appUserMapper.insert(newUser);
+            return toMap(newUser);
+        } catch (DuplicateKeyException e) {
+            log.info("ensureUser duplicate mobile detected, fallback to query mobile={}", mobile);
+            AppUser concurrentExisting = getUserByMobileInternal(mobile);
+            if (concurrentExisting != null) {
+                return toMap(concurrentExisting);
+            }
+            throw e;
+        }
     }
 
     /**
@@ -246,6 +256,11 @@ public class InternalUserController {
         m.put("birthday", user.getBirthday());
         m.put("registerTime", user.getRegisterTime());
         return m;
+    }
+
+    private AppUser getUserByMobileInternal(String mobile) {
+        return appUserMapper.selectOne(
+                new LambdaQueryWrapper<AppUser>().eq(AppUser::getMobile, mobile));
     }
 
     private Map<String, Object> toTenantUserMap(TenantUser tenantUser) {
