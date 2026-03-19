@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -85,8 +86,15 @@ public class InternalUserController {
     @PostMapping("/users/ensure")
     public Map<String, Object> ensureUser(@RequestBody Map<String, Object> body) {
         String mobile = (String) body.get("mobile");
+        String password = body.get("password") instanceof String ? (String) body.get("password") : null;
         AppUser existing = getUserByMobileInternal(mobile);
-        if (existing != null) return toMap(existing);
+        if (existing != null) {
+            if (!StringUtils.hasText(existing.getPassword()) && StringUtils.hasText(password)) {
+                existing.setPassword(passwordEncoder.encode(password));
+                appUserMapper.updateById(existing);
+            }
+            return toMap(existing);
+        }
 
         AppUser newUser = new AppUser();
         newUser.setMobile(mobile);
@@ -95,8 +103,8 @@ public class InternalUserController {
         newUser.setStatus(1);
         newUser.setIsDeleted(0);
         newUser.setRegisterTime(LocalDateTime.now());
-        if (body.get("password") != null) {
-            newUser.setPassword(passwordEncoder.encode((String) body.get("password")));
+        if (StringUtils.hasText(password)) {
+            newUser.setPassword(passwordEncoder.encode(password));
         }
         try {
             appUserMapper.insert(newUser);

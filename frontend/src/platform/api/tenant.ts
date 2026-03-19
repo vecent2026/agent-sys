@@ -28,6 +28,7 @@ export interface PlatformTenantQuery {
 export interface CreateTenantAdminUser {
   mobile: string;
   nickname: string;
+  password: string;
 }
 
 export interface CreateTenantForm {
@@ -107,4 +108,3 @@ export const updatePlatformTenantPermissionIds = (
 export const getPlatformTenantStats = (id: number) => {
   return platformRequest.get<TenantStats>(`/api/platform/tenants/${id}/stats`);
 };
-

@@ -236,12 +236,16 @@ public class PlatformTenantServiceImpl implements PlatformTenantService {
         if (dto.getAdminUser() == null || !StringUtils.hasText(dto.getAdminUser().getMobile())) {
             return;
         }
+        if (!StringUtils.hasText(dto.getAdminUser().getPassword())) {
+            throw new BusinessException("初始化管理员失败：初始管理员密码不能为空");
+        }
         try {
             Map<String, Object> ensureReq = new HashMap<>();
             ensureReq.put("mobile", dto.getAdminUser().getMobile());
             ensureReq.put("nickname", StringUtils.hasText(dto.getAdminUser().getNickname())
                     ? dto.getAdminUser().getNickname()
                     : dto.getAdminUser().getMobile());
+            ensureReq.put("password", dto.getAdminUser().getPassword());
 
             ResponseEntity<Map<String, Object>> ensureResp = restTemplate.exchange(
                     userServiceUrl + "/api/internal/users/ensure",

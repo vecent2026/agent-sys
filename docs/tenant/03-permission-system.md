@@ -403,10 +403,11 @@ public void assignRolePermissions(Long tenantId, Long roleId, List<Long> permiss
     ...
     "adminUser": {           ← 初始管理员信息（手机号为唯一标识）
       "mobile": "13800000001",
-      "nickname": "租户管理员"
+      "nickname": "租户管理员",
+      "password": "Admin@123"
     }
   }
-  注：初始密码由系统生成后通过短信/邮件通知管理员，不在 API 中明文传递。
+  注：初始管理员密码在创建租户时直接设置，并由平台操作人线下安全告知管理员。
 
 后端处理（全程事务保护，跨服务步骤使用补偿机制）：
   1. 创建 platform_tenant 记录（admin-service）
