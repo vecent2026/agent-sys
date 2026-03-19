@@ -129,6 +129,19 @@ public class InternalUserController {
     }
 
     /**
+     * 查询用户的租户成员关系列表（含状态）
+     */
+    @GetMapping("/users/{userId}/tenant-memberships")
+    public List<Map<String, Object>> getUserTenantMemberships(@PathVariable Long userId) {
+        return tenantUserMapper.selectList(
+                        new LambdaQueryWrapper<TenantUser>()
+                                .eq(TenantUser::getUserId, userId))
+                .stream()
+                .map(this::toTenantUserMap)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * 写入 tenant_user 关系（幂等）
      */
     @PostMapping("/tenant-users")

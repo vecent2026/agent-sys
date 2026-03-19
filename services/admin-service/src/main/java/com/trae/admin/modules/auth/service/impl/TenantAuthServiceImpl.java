@@ -292,21 +292,27 @@ public class TenantAuthServiceImpl implements TenantAuthService {
         if (userId == null) {
             return Collections.emptyList();
         }
-        List<Long> tenantIds = getUserTenants(userId);
-        if (tenantIds.isEmpty()) {
+        List<Map<String, Object>> memberships = getUserTenantMemberships(userId);
+        if (memberships.isEmpty()) {
             return Collections.emptyList();
         }
-        return tenantIds.stream()
-                .map(tenantId -> {
+        return memberships.stream()
+                .map(membership -> {
+                    Long tenantId = toLong(membership.get("tenantId"));
+                    if (tenantId == null) {
+                        return null;
+                    }
                     PlatformTenant t = platformTenantMapper.selectById(tenantId);
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", tenantId);
                     m.put("name", t != null ? t.getTenantName() : "");
                     m.put("tenantCode", t != null ? t.getTenantCode() : "");
                     m.put("isCurrent", Objects.equals(currentTenantId, tenantId));
-                    m.put("memberStatus", 1);
+                    m.put("memberStatus", membership.get("status") != null
+                            ? Integer.valueOf(membership.get("status").toString()) : 1);
                     return m;
                 })
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
@@ -413,6 +419,20 @@ public class TenantAuthServiceImpl implements TenantAuthService {
             return tenants != null ? tenants : Collections.emptyList();
         } catch (Exception e) {
             log.error("getUserTenants failed for userId={}", userId, e);
+            return Collections.emptyList();
+        }
+    }
+
+    private List<Map<String, Object>> getUserTenantMemberships(Long userId) {
+        try {
+            ResponseEntity<List<Map<String, Object>>> resp = restTemplate.exchange(
+                    userServiceUrl + "/api/internal/users/" + userId + "/tenant-memberships",
+                    HttpMethod.GET, null,
+                    new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+            List<Map<String, Object>> memberships = resp.getBody();
+            return memberships != null ? memberships : Collections.emptyList();
+        } catch (Exception e) {
+            log.error("getUserTenantMemberships failed for userId={}", userId, e);
             return Collections.emptyList();
         }
     }
