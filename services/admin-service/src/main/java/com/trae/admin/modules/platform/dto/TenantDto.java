@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.Valid;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -43,6 +44,7 @@ public class TenantDto {
     private Integer maxUsers;
 
     /** 创建租户时可选：初始化管理员信息 */
+    @Valid
     private AdminUserDto adminUser;
 
     @Data
@@ -53,5 +55,9 @@ public class TenantDto {
 
         @Size(max = 50, message = "管理员昵称不超过50个字符")
         private String nickname;
+
+        @NotBlank(message = "初始管理员密码不能为空")
+        @Size(min = 6, max = 20, message = "初始管理员密码长度须在6~20之间")
+        private String password;
     }
 }

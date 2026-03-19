@@ -35,7 +35,7 @@ export interface TenantDto {
   status?: number;
   expireTime?: string;
   maxUsers?: number;
-  adminUser?: { mobile: string; nickname?: string };
+  adminUser?: { mobile: string; nickname?: string; password?: string };
 }
 
 export const getTenantPage = (params: TenantQueryParams) =>

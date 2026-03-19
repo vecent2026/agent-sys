@@ -15,5 +15,6 @@ public class PlatformTenantCreateDto {
     public static class AdminUserDto {
         private String mobile;
         private String nickname;
+        private String password;
     }
 }

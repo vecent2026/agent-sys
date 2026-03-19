@@ -300,7 +300,7 @@ GET    /api/platform/tenants                     # 租户列表（分页）
        Query: page, size, keyword, status
 
 POST   /api/platform/tenants                     # 创建租户（含初始管理员）
-       Body: { tenantCode, tenantName, ..., adminUser: { mobile, nickname } }  // 初始密码由系统自动生成并短信通知
+       Body: { tenantCode, tenantName, ..., adminUser: { mobile, nickname, password } }  // 创建时直接设置初始管理员密码
 
 GET    /api/platform/tenants/{id}                # 租户详情
 PUT    /api/platform/tenants/{id}                # 更新租户信息
